@@ -1,0 +1,13 @@
+.canvas {
+    width: 640px;
+}
+
+.table-container {
+    width: 320px;
+}
+
+.view {
+    float: left;
+    height: 240px;
+    overflow: auto;
+}
