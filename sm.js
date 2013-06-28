@@ -1,13 +1,15 @@
+/*
+*
+*   model for state machine
+*
+*/
 function SM() {
     var exports = {};
     
     //the important mechanisms
+    var timeIndex = 0;
     var values = {};
     var functions = {};
-    
-    //the setup components
-    var connections = [];
-    var components = {};
     
     //the component definition functions
     function component(name, type, input, K) {
@@ -40,7 +42,7 @@ function SM() {
     
     //Performs 1 time step with input 'inp'
     function step(inp) {
-        //Identifies the current time index
+        //Identifies the current index
         var i = values.input.length;
         //Adds 'inp' to the array of inputs at the current time index
         values.input.push(inp);
@@ -59,6 +61,7 @@ function SM() {
                 }
             }
         }
+        timeIndex += 1;
         //Returns the output
         return values.out[i];
     }
@@ -72,16 +75,13 @@ function SM() {
     //initializes machine according to components and connections
     //if previously initialized, can take no arguments
     function initialize(comp, conn) {
+        timeIndex = 0;
         values.input = [0];
-        if(components !== undefined)
-            components = comp;
-        if(connections !== undefined)
-            connections = conn;
+        var components = jQuery.extend(true, {}, comp);
+        var connections = jQuery.extend(true, {}, conn);
         
-        for(c in components) {
-            if(components[c][1] !== [])
-                components[c].splice(1,0,[]);
-        }
+        for(c in components)
+            components[c].splice(1,0,[]);
         
         components.out = ['out',[]];
         //defines parent of each component based on connections
@@ -106,17 +106,18 @@ function SM() {
         }
     }
     
-    function inout() {
-        return [values.input, values.out];
+    function getCurrentValue(id) {
+        return values[id][values[id].length-1];
     }
     
-    exports.inout = inout;
+    exports.timeIndex = function () { return timeIndex; };
     exports.step = step;
     exports.transduce = transduce;
     exports.initialize = initialize;
+    exports.getCurrentValue = getCurrentValue;
     
     return exports;
-};
+}
 
 //TESTING JSPLUMB - lists all connections as pairs of from, to
 function listConns() {
@@ -127,8 +128,113 @@ function listConns() {
     return list;
 }
 
+/*
+*
+*   MODEL
+*   functions:  initialize(components list, connections list) - call at beginning to initialize machine
+*               step - increments one time step
+*               run - continuously steps at 1 second intervals
+*               reset - back to time 0
+*               switchInput - switches between unit sample and unit step inputs
+*
+*/
+function Model() {
+    var sm, chart, interval;
+    var exports = {}, sample = true;
+    var components, connections;
+    
+    function initialize(comps, conns) {
+        components = comps;
+        connections = conns;
+        sm = SM();
+        sm.initialize(components, connections);
+        
+        chart = $('.canvas').highcharts({
+            title: {text: '', floating: true},
+            xAxis: {title: {text: 'Time Step'}, categories: []},
+            exporting: {enabled: false},
+            legend: {floating: true, verticalAlign: 'top'},
+            series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
+                    {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
+        });
+        
+        $('.sample').on('click', switchInput);
+        $('.stop').on('click', run);
+        $('.step').on('click', step);
+        $('.reset').on('click', reset);
+        
+        updateSpans();
+    }
+    
+    function updateSpans() {
+        var spans = $('.componentValue');
+        for(s in spans) {
+            if(spans[s].id !== undefined)
+                spans[s].innerHTML = ('<b>'+spans[s].id+'</b>: '+sm.getCurrentValue(spans[s].id)+',');
+        }
+    }
+    
+    //true = unit sample, false = unit step
+    function step() {
+        var input = 1;
+        var time = sm.timeIndex();
+        if(sample & time !== 0)
+            input = 0;
+        var newPoint = sm.step(input);
+        var shift = chart.highcharts().get('output').data.length >= 10;
+        chart.highcharts().get('input').addPoint(input, true, shift);
+        chart.highcharts().get('output').addPoint(newPoint, true, shift);
+        $('table').find('tbody').append('<tr><td>'+
+                     time+'</td><td>'+
+                     input+'</td><td>'+
+                     newPoint+'</td></tr>');
+        $('.table-container').scrollTop($('.table-container')[0].scrollHeight);
+        
+        updateSpans();
+    }
+    
+    function reset() {
+        sm.initialize(testComponents, testConnections);
+        chart.highcharts().get('input').setData([]);
+        chart.highcharts().get('output').setData([]);
+        $('table').find('tbody').html('');
+        
+        updateSpans();
+    }
+    
+    function run() {
+        if($('.stop').text() === "Start") {
+            interval = setInterval(step, 1000);
+            $('.stop').text("Stop");
+        }
+        else {
+            clearInterval(interval);
+            $('.stop').text("Start");
+        }
+    }
+    
+    function switchInput() {
+        if($('.sample').text() === "Unit Sample") {
+            sample = false;
+            $('.sample').text("Unit Step");
+        }
+        else {
+            sample = true;
+            $('.sample').text("Unit Sample");
+        }
+    }
+    
+    exports.initialize = initialize;
+    exports.switchInput = switchInput;
+    exports.step = step;
+    exports.run = run;
+    exports.reset = reset;
+    
+    return exports;
+}
+
 //name: [type, input(s)[, K]]
-var components = {
+var testComponents = {
     sub: ['adder'],
     g2: ['gain', 2],
     r1: ['delay'],
@@ -139,7 +245,7 @@ var components = {
     add: ['adder']
 };
 //[parent, child]
-var connections = [
+var testConnections = [
     ['input', 'sub'],
     ['sub', 'g2'],
     ['g2', 'r1'],
@@ -153,60 +259,5 @@ var connections = [
     ['add', 'out']
 ];
 
-var sm = SM();
-sm.initialize(components, connections);
-
-//should return [0, -1, 2, -4, 8, -16, 32, -64, 128, -256]
-var input = [1,0,0,0,0,0,0,0,0,0];
-var result = sm.transduce(input);
-console.log(result);
-
-/************************
-* CHART MAGIC HAPPENS HERE
-************************/
-
-var chart = $('.canvas').highcharts({
-    title: {text: 'State Machine'},
-    xAxis: {title: {text: 'Time Step'}, categories: []},
-    exporting: {enabled: false},
-    legend: {enabled: false},
-    series: [{name: 'Input', type: 'line', id: 'input', data: input, animation: false},
-            {name: 'Output', type: 'line', id: 'data', data: result, animation: false}]
-});
-
-//TABLES
-
-//var table = $('table').find('tbody');
-var inout = sm.inout();
-for(i in inout[0]) {
-    $('table').find('tbody').append('<tr><td>'+
-                 (i-1)+'</td><td>'+
-                 inout[0][i]+
-                 '</td><td>'+
-                 inout[1][i]+
-                 '</td></tr>');
-}
-
-//STEPS
-
-function step() {
-    var newPoint = sm.step(0);
-    chart.highcharts().get('input').addPoint(0);
-    chart.highcharts().get('data').addPoint(newPoint);
-    $('table').find('tbody').append('<tr><td>'+
-                 ($('td').length/3-1)+'</td><td>0</td><td>'+
-                 newPoint+
-                 '</td></tr>');
-}
-
-var interval;
-$('.stop').on('click', function () {
-    if($(this).text() === "Start") {
-        interval = setInterval(step, 1000);
-        $(this).text("Stop");
-    }
-    else {
-        clearInterval(interval);
-        $(this).text("Start");
-    }
-});
+var model = Model();
+model.initialize(testComponents, testConnections);

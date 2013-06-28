@@ -6,43 +6,56 @@
 <script src="http://code.highcharts.com/highcharts.js"></script>
 <script src="http://code.highcharts.com/modules/exporting.js"></script>
 <script src="../boots/bootstrap/js/bootstrap.min.js"></script>
-<link href="mvc.css" rel="stylesheet">
 <link href="../boots/bootstrap/css/bootstrap.min.css" rel="stylesheet">
 <link href="../boots/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
+<script src="examples.js"></script>
 <script src="mvc.js"></script>
+<link href="mvc.css" rel="stylesheet">
 </head>
 <body>
-    <div class="container">
-        <div class="statemachine"></div>
-<!--
-        <button class="sample btn btn-info">Unit Sample</button>
-        <button class="stop btn btn-success">Start</button>
-        <button class="step btn btn-primary">Step</button>
-        <button class="reset btn btn-warning">Reset</button>
-        <span class='componentValue' id='sub'></span>
-        <span class='componentValue' id='g2'></span>
-        <span class='componentValue' id='r1'></span>
-        <span class='componentValue' id='gn1'></span>
-        <span class='componentValue' id='r2'></span>
-        <span class='componentValue' id='g1p5'></span>
-        <span class='componentValue' id='gn2'></span>
-        <span class='componentValue' id='add'></span>
-        <br>
-        <div class="canvas view"></div>
-        <div class="table-container view">
-            <table class="table table-striped table-condensed">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>X</th>
-                        <th>Y</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            </table>
+    <div class="navbar">
+        <div class="navbar-inner">
+            <a class="brand" href="#">6.01 State Machine Simulator</a>
+            <ul class="nav">
+                <li><a href="#popup" data-toggle="modal">About</a></li>
+                <li><a href="#" class="loadSM">Load</a></li>
+            </ul>
         </div>
--->
+    </div>
+    <div id="popup" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="popupLabel" aria-hidden="true">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
+            <h3 id="popupLabel">About</h3>
+        </div>
+        <div class="modal-body">
+            <p>This is a visual representation of an LTI system, or a 6.01 state machine.</p>
+            <ul>
+                <li>We have created a simple oscillating demo. Click "Run" to see it in action.</li>
+                <li>Or, if you want to make your own, drag undesired components to the trash.</li>
+                <li>Click on a left panel button to create a new component.</li>
+                <li>Drag from a source (solid gray) to a target (empty blue) to create a connection.</li>
+                <li>Only an Adder is allowed multiple input connections!</li>
+                <li>Once everything is connected, run it or "Step" it for closer analysis.</li>
+                <li>Or click "See 1st 10" to quickly glimpse its long-term behavior/</li>
+                <li>The input defaults to Unit Sample. Click to toggle to Unit Step.</li>
+                <li>Right click on a component to reverse its orientation.</li>
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <button class="btn" data-dismiss="modal" aria-hidden="true">I understand now!</button>
+        </div>
+    </div>
+    <div class="container">
+        <div class="statemachine">
+            <div class="smComp" data-type="delay" data-id="delay0" data-top="160" data-left="600" data-rev="yes"></div>
+            <div class="smComp" data-type="gain" data-id="gain1" data-top="80" data-left="800" data-value="-1"></div>
+            <div class="smComp" data-type="adder" data-id="adder2" data-top="80" data-left="500"></div>
+            <div class="smConn" data-from="delay0" data-to="adder2"></div>
+            <div class="smConn" data-from="input" data-to="adder2"></div>
+            <div class="smConn" data-from="adder2" data-to="gain1"></div>
+            <div class="smConn" data-from="gain1" data-to="delay0"></div>
+            <div class="smConn" data-from="gain1" data-to="output"></div>
+        </div>
     </div>
 </body>
 </html>

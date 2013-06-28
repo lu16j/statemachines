@@ -39,28 +39,35 @@ var statemachine = (function () {
         
         function component(name, type, input, K) {
             values[name] = [0];
-            if(type === 'delay') {
-                functions[name] = function (i) {
-                    return values[input][i-1];              //RETURN PREVIOUS VALUE OF INPUT NODE
-                };
-            }
-            if(type === 'gain') {
-                functions[name] = function (i) {
-                    return K * values[input][i];            //RETURN K TIMES VALUE OF INPUT NODE
-                };
-            }
-            if(type === 'adder') {
-                functions[name] = function (i) {
-                    var output = 0;
-                    for(inp in input)
-                        output += values[input[inp]][i];    //RETURNS SUM OF ALL INPUT NODES
-                    return output;
-                };
-            }
-            if(type === 'out') {
-                functions.out = function (i) {
-                    return values[input][i];                //DEFINES A NODE TO BE THE OUTPUT
-                };
+            if(input.length === 0)
+                functions[name] = function (i) { return 0; };
+            else {
+                if(type === 'delay') {
+                    functions[name] = function (i) {
+                        return values[input][i-1];              //RETURN PREVIOUS VALUE OF INPUT NODE
+                    };
+                }
+                if(type === 'gain') {
+                    functions[name] = function (i) {
+                        return K * values[input][i];            //RETURN K TIMES VALUE OF INPUT NODE
+                    };
+                }
+                if(type === 'adder') {
+                    functions[name] = function (i) {
+                        var output = 0;
+                        for(inp in input)
+                            output += values[input[inp]][i];    //RETURNS SUM OF ALL INPUT NODES
+                        return output;
+                    };
+                }
+                if(type === 'output') {
+                    functions.output = function (i) {
+                        var output = 0;
+                        for(inp in input)
+                            output += values[input[inp]][i];    //RETURNS SUM OF ALL INPUT NODES
+                        return output;
+                    };
+                }
             }
         }
         
@@ -89,7 +96,7 @@ var statemachine = (function () {
             //  Updates time index
             timeIndex += 1;
             
-            return values.out[i];
+            return values.output[i];
         }
         
         //  ---NEEDS UPDATE---
@@ -109,7 +116,7 @@ var statemachine = (function () {
             
             for(c in components)
                 components[c].splice(1,0,[]);
-            components.out = ['out',[]];
+            components.output = ['output',[]];
             
             //  Defines each component's input(s) based on connections
             for(c in connections) {
@@ -119,6 +126,10 @@ var statemachine = (function () {
                 var type = components[child][0];
                 switch (type) {
                     case 'adder':
+                        if(components[child][1].indexOf(parent) < 0)
+                            components[child][1].push(parent);
+                        break
+                    case 'output':
                         if(components[child][1].indexOf(parent) < 0)
                             components[child][1].push(parent);
                         break
@@ -151,21 +162,31 @@ var statemachine = (function () {
     function Model() {
         var sm = SM(), interval;
         var exports = {}, sample = true, handler = UpdateHandler();
-        var components, connections;
-        
-        function initialize(comps, conns) {
-            components = comps;
-            connections = conns;
-            sm.initialize(components, connections);
-        }
+        //name: [type, input(s)[, K]]
+        var components = {};
+        //[parent, child]
+        var connections = [];
         
         function step() {
             var input = 1;
             var time = sm.timeIndex();
+            if(time === 0) {
+                sm.initialize(components, connections);
+            }
             if(sample & time !== 0)
                 input = 0;
             var output = sm.step(input);
             handler.trigger('step', [time, input, output]);
+        }
+        
+        function firstTen() {
+            sm.initialize(components, connections);
+            var inputs = [1];
+            if(sample)
+                inputs = inputs.concat([0,0,0,0,0,0,0,0,0]);
+            else
+                inputs = inputs.concat([1,1,1,1,1,1,1,1,1]);
+            handler.trigger('firstTen', [inputs, sm.transduce(inputs)]);
         }
         
         function reset() {
@@ -176,7 +197,7 @@ var statemachine = (function () {
         function run(btn) {
             if(btn.text() === "Start") {
                 interval = setInterval(step, 1000);
-                btn.text("Stop");
+                btn.text("Pause");
             }
             else {
                 clearInterval(interval);
@@ -195,13 +216,48 @@ var statemachine = (function () {
             }
         }
         
-        exports.initialize = initialize;
+        /**************************/
+        function updateConnections(connection, remove) {
+            var conn = [connection.sourceId, connection.targetId];
+            
+			if (!remove) connections.push(conn);
+			else {
+				var idx = -1;
+				for (var i = 0; i < connections.length; i++) {
+					if (!(connections[i] < conn | connections[i] > conn)) {
+						idx = i; 
+                        break;
+					}
+				}
+				if (idx != -1) {
+                    connections.splice(idx, 1);
+                }
+			}
+        }
+        function updateComponents(name, component, remove) {
+            var comp = component;
+            
+			if (!remove) components[name] = comp;
+			else {
+				for (i in components) {
+					if (i === name) {
+						delete components[name];
+                        break;
+					}
+				}
+			}
+        }
+        /***************************/
+        
         exports.switchInput = switchInput;
         exports.step = step;
         exports.run = run;
         exports.reset = reset;
         exports.on = handler.on;
         exports.getValue = sm.getCurrentValue;
+        exports.updateConnections = updateConnections;
+        exports.updateComponents = updateComponents;
+        exports.firstTen = firstTen;
         
         return exports;
     }
@@ -223,19 +279,209 @@ var statemachine = (function () {
             model.reset();
         }
         
-        function initialize(comps, conns) {
-            model.initialize(comps, conns);
+        function firstTen() {
+            model.firstTen();
         }
         
-        return {switchInput: switchInput, run: run, step: step, reset: reset, initialize: initialize};
+        return {switchInput: switchInput, run: run, step: step, firstTen: firstTen, reset: reset};
     }
     
     function View(div, model, controller) {
-        var table = $('<div class="table-container view"></div>');
+        var idmaker = 0;
+        var usedIds = ['input','output','delay','gain','adder'];
+        
+        var exampleEndpoint = {
+            endpoint:"Rectangle",
+            paintStyle:{ width:20, height:20, fillStyle:"#eee"},
+            scope:"blue rectangle",
+            connectorStyle : {
+                lineWidth:2,
+                strokeStyle: "#000",
+                joinstyle: 'round'
+            },
+            connector:[ "Flowchart", { stub:[20, 20], gap:10, cornerRadius:5, alwaysRespectStubs:true } ],	
+            dropOptions : {
+                tolerance:"touch",
+                hoverClass:"dropHover",
+                activeClass:"dragActive"
+            },
+            isTarget: true,
+            isSource: true
+        };
+        
+        //RESIZE AND REPOSITION THINGS WHEN WINDOW RESIZES
+        var prevWinWidth = $(window).width();
+        $(window).resize(function () {
+            var ratio = $(window).width() / prevWinWidth;
+            $('.item').each(function () {
+                var previousLeft = parseFloat($(this).css('left'));
+                $(this).css({'left':(previousLeft*ratio)});
+            });
+            jsPlumb.repaintEverything();
+            prevWinWidth = $(window).width();
+        });
+        
+        //CREATE A NEW COMPONENT AT A POSITION
+        function createComponent(dataType, dataId, top, left, value, reversed) {
+            if(value === undefined)
+                value = 0;
+            if(dataId === undefined)
+                dataId = dataType;
+            
+            var nameId = dataId;
+            if(usedIds.indexOf(dataId) > -1) {
+                idmaker = 0;
+                while(usedIds.indexOf(dataId + idmaker) > -1)
+                    idmaker = idmaker + 1;
+                nameId = dataId + idmaker;
+            }
+            usedIds.push(nameId);
+            
+            var newComponent = $("<div class='item' data-type="+dataType+" id='"+nameId+"'>"+"<img src='"+dataType+".png'>"+
+                                 "</div>");
+            newComponent.css({"position":"absolute", "top": top,"left": left});
+            newComponent.find('img').css({'height':'100%','width':'100%'});
+            
+            if(dataType === 'gain') {
+                var valueBox = $("<input type='text' id='"+nameId+"'></input>");
+                valueBox.val(value);
+                newComponent.append(valueBox);
+                valueBox.on('keyup', function () {
+                    model.updateComponents(nameId, [dataType, parseFloat(valueBox.val())]);
+                });
+                valueBox.css({"position":"relative", "top":"-90%","left":"30%", "height": "80%","width":"40%", "border":"0px", "background":"none"});
+            }
+            
+            var spanId = $("<span class='componentValue' type='text' id="+nameId+">0</span>");
+            newComponent.append(spanId);
+            spanId.css({"height": "50%","width":"50%", "text-align":"center"});
+            
+            displayArea.append(newComponent);
+            model.updateComponents(nameId, [dataType, value]);
+            
+            var maxconns = 1;
+            if(dataType === 'adder')
+                maxconns = 3;
+            
+            jsPlumb.draggable($("#"+nameId), {containment: $('.container')});
+            
+            var outputEndpoint = jsPlumb.addEndpoint($('#'+nameId), {anchor: 'Right', isTarget: false, maxConnections: 3}, exampleEndpoint);
+            var inputEndpoint = jsPlumb.addEndpoint($('#'+nameId), {anchor: 'Left', isSource: false, maxConnections: maxconns, paintStyle:{width:20, height:20, strokeStyle:"#225588",
+					fillStyle:"transparent",
+					lineWidth:2}}, exampleEndpoint);
+            
+            function switchEndpoints() {
+                if(inputEndpoint.anchor.x === 0) {
+                    inputEndpoint.setAnchor('Right');
+                    outputEndpoint.setAnchor('Left');
+                    newComponent.attr('data-rev', 'yes');
+                }
+                else {
+                    inputEndpoint.setAnchor('Left');
+                    outputEndpoint.setAnchor('Right');
+                    newComponent.attr('data-rev', 'no');
+                }
+                return false;
+            }
+            
+            if(reversed === 'yes') {
+                switchEndpoints();
+            }
+            
+            newComponent[0].oncontextmenu = function (e) {
+                return switchEndpoints();
+            };
+            
+        }
+        
+        //DEFINE EVERYTHING
+        var displayArea = $("<div class='displayArea view wide'></div>");
+        var componentField = $("<div class='componentField view narrow'></div>");
+        var trash = $("<div class='trash short narrow'><i class='icon-trash'></i><strong>TRASH</strong></div>");
+        var buttonField =  $("<div class='buttonField short wide'></div>");
+        var chart = $('<div class="wide view"></div>');
+        var table = $('<div class="narrow view"></div>');
+        
+        var sampleButton = $('<button class="btn btn-info">Unit Sample</button>');
+        sampleButton.on('click', controller.switchInput);
+        var runButton = $('<button class="btn btn-success">Start</button>');
+        runButton.on('click', controller.run);
+        var stepButton = $('<button class="btn btn-primary">Step</button>');
+        stepButton.on('click', controller.step);
+        var tenButton = $('<button class="btn btn-danger">Show 1st 10</button>');
+        tenButton.on('click', controller.firstTen);
+        var resetButton = $('<button class="btn btn-warning">Reset</button>');
+        resetButton.on('click', controller.reset);
+        
+        var delayBtn = $("<button class='buttonz btn' data-type='delay'><img src='delay.png'></button>");
+        var gainBtn  = $("<button class='buttonz btn' data-type='gain'><img src='gain.png'></button>");
+        var adderBtn = $("<button class='buttonz btn' data-type='adder'><img src='adder.png'></button>");
+        
+        componentField.append(delayBtn, gainBtn, adderBtn);
+        
         table.append('<table class="table table-striped table-condensed"><thead>\
                     <tr><th>Time</th><th>X</th><th>Y</th></tr>\
                     </thead><tbody></tbody></table>');
-        var chart = $('<div class="canvas view"></div>').highcharts({
+        
+        buttonField.append(sampleButton, runButton, stepButton, tenButton, resetButton);
+        
+        /***************************************/
+        
+//        var prevHTML = div.html();
+//        div.html('');
+//        div.html(prevHTML);
+        var preComps = $('.smComp');
+        var preConns = $('.smConn');
+        div.html('');
+        
+        /***************************************/
+        
+        div.append(componentField, displayArea, trash, buttonField, table, chart);
+        
+        //////CREATE INPUT OUTPUT BUTTONS
+        var inputComponent = $("<div class='item' id='input'><img src='input.png'><span class='componentValue' type='text' id='input'>0</span></div>");
+        var outputComponent = $("<div class='item' id='output'><img src='output.png'><span class='componentValue' type='text' id='output'>0</span></div>");
+        displayArea.append(inputComponent, outputComponent);
+        $('.item').each(function () {
+            $(this).find('span').css({"height": "50%","width":"50%", "text-align":"center"});
+            $(this).find('img').css({'height':'100%','width':'100%'});
+        });
+        inputComponent.css({"position":"absolute", "top": 80,"left": displayArea.position().left});
+        outputComponent.css({"position":"absolute", "top": 80,"left": ($(window).width()-displayArea.position().left)});
+        jsPlumb.addEndpoint($('#input'),  {anchor:'Right', isSource: true, maxConnections:3}, exampleEndpoint);
+        jsPlumb.addEndpoint($('#output'),  {anchor:'Left', isTarget: true, maxConnections:1, paintStyle:{width:20, height:20,
+                    strokeStyle:"#225588",
+					fillStyle:"transparent",
+					lineWidth:2}}, exampleEndpoint);
+        jsPlumb.draggable($('.item'));
+        
+        /***************************************/
+        
+        function loadComponents(preComp, preConn) {
+            for(var i=0; i<preComp.length; i++)
+                createComponent(preComp.eq(i).attr('data-type'),
+                                preComp.eq(i).attr('data-id'),
+                                preComp.eq(i).attr('data-top'),
+                                preComp.eq(i).attr('data-left'),
+                                preComp.eq(i).attr('data-value'),
+                                preComp.eq(i).attr('data-rev'));
+            
+            for(var i=0; i<preConn.length; i++) {
+                var fromPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-from'))[0];
+                var toPoint;
+                if(preConn.eq(i).attr('data-to') === 'output')
+                    toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[0];
+                else
+                    toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[1];
+                model.updateConnections(jsPlumb.connect({source: fromPoint, target: toPoint}));
+            }
+        }
+        
+        loadComponents(preComps, preConns);
+        
+        /***************************************/
+        
+        chart.highcharts({
             title: {text: '', floating: true},
             xAxis: {title: {text: 'Time Step'}, categories: []},
             exporting: {enabled: false},
@@ -243,18 +489,30 @@ var statemachine = (function () {
             series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
                     {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
         });
-        var componentSpans = $("<div><span class='componentValue' id='sub'></span>\
-                        <span class='componentValue' id='g2'></span>\
-                        <span class='componentValue' id='r1'></span>\
-                        <span class='componentValue' id='gn1'></span>\
-                        <span class='componentValue' id='r2'></span>\
-                        <span class='componentValue' id='g1p5'></span>\
-                        <span class='componentValue' id='gn2'></span>\
-                        <span class='componentValue' id='add'></span></div>");
+        
+        //OTHER FUNCTIONS
+        
+        function buttonClicked(buttonz, button){
+            createComponent(buttonz.attr('data-type'), undefined, buttonz.position().top, buttonz.position().left);
+        }
+        
+        $(".buttonz").on("click",function(){
+            buttonClicked($(this), this);
+        });
+        
+        $('.trash').droppable({
+            over: function(event, ui) {
+                if((['input','output']).indexOf(ui.draggable[0].id) < 0) {
+                    jsPlumb.removeAllEndpoints(ui.draggable);
+                    model.updateComponents(ui.draggable[0].id, [], true);
+                    $(ui.draggable).remove();
+                }
+            }
+        });
         
         function updateSpans() {
             $('.componentValue').each(function () {
-                this.innerHTML = ('<b>'+this.id+'</b>: '+model.getValue(this.id)+',');
+                this.innerHTML = model.getValue(this.id);
             });
         }
         
@@ -278,56 +536,38 @@ var statemachine = (function () {
             updateSpans();
         }
         
+        function firstTen(data) {
+            chart.highcharts().get('input').setData(data[0]);
+            chart.highcharts().get('output').setData(data[1]);
+            table.find('tbody').html('');
+            for(var i=0; i<10; i++)
+                table.find('tbody').append('<tr><td>'+i+'</td><td>'+data[0][i]+
+                                       '</td><td>'+data[1][i]+'</td></tr>');
+            table.scrollTop($(table)[0].scrollHeight);
+            updateSpans();
+        }
+        
         model.on('step', step);
         model.on('reset', reset);
-        
-        div.append(componentSpans, chart, table);
-        updateSpans();
+        model.on('firstTen', firstTen);
     }
     
     function setup(div) {
         var model = Model();
         var controller = Controller(model);
-        
-        var sampleButton = $('<button class="btn btn-info">Unit Sample</button>');
-        sampleButton.on('click', controller.switchInput);
-        var runButton = $('<button class="btn btn-success">Start</button>');
-        runButton.on('click', controller.run);
-        var stepButton = $('<button class="btn btn-primary">Step</button>');
-        stepButton.on('click', controller.step);
-        var resetButton = $('<button class="btn btn-warning">Reset</button>');
-        resetButton.on('click', controller.reset);
-        
-        //name: [type, input(s)[, K]]
-        var testComponents = {
-            sub: ['adder'],
-            g2: ['gain', 2],
-            r1: ['delay'],
-            gn1: ['gain', -1],
-            r2: ['delay'],
-            g1p5: ['gain', 1.5],
-            gn2: ['gain', -2],
-            add: ['adder']
-        };
-        //[parent, child]
-        var testConnections = [
-            ['input', 'sub'],
-            ['sub', 'g2'],
-            ['g2', 'r1'],
-            ['g2', 'r2'],
-            ['r1', 'gn1'],
-            ['gn1', 'sub'],
-            ['r2', 'g1p5'],
-            ['r2', 'gn2'],
-            ['g1p5', 'add'],
-            ['gn2', 'add'],
-            ['add', 'out']
-        ];
-        
-        controller.initialize(testComponents, testConnections);
-        
-        div.append(sampleButton, ' ', runButton, ' ', stepButton, ' ', resetButton);
         var view = View(div, model, controller);
+      
+        jsPlumb.ready(function() {
+            jsPlumb.importDefaults({
+                ConnectionOverlays: [[ "Arrow", { location:-10 } ]]
+            });
+            jsPlumb.bind("connection", function(info, originalEvent) {
+                model.updateConnections(info.connection);
+            });
+            jsPlumb.bind("connectionDetached", function(info, originalEvent) {
+                model.updateConnections(info.connection, true);
+            });
+        });
     }
     
     return {setup: setup};
