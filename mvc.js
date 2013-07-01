@@ -62,10 +62,7 @@ var statemachine = (function () {
                 }
                 if(type === 'output') {
                     functions.output = function (i) {
-                        var output = 0;
-                        for(inp in input)
-                            output += values[input[inp]][i];    //RETURNS SUM OF ALL INPUT NODES
-                        return output;
+                        return values[input][i];                //RETURNS VALUE OF INPUT NODE
                     };
                 }
             }
@@ -126,10 +123,6 @@ var statemachine = (function () {
                 var type = components[child][0];
                 switch (type) {
                     case 'adder':
-                        if(components[child][1].indexOf(parent) < 0)
-                            components[child][1].push(parent);
-                        break
-                    case 'output':
                         if(components[child][1].indexOf(parent) < 0)
                             components[child][1].push(parent);
                         break
@@ -216,24 +209,15 @@ var statemachine = (function () {
             }
         }
         
-        /**************************/
-        function updateConnections(connection, remove) {
-            var conn = [connection.sourceId, connection.targetId];
-            
-			if (!remove) connections.push(conn);
-			else {
-				var idx = -1;
-				for (var i = 0; i < connections.length; i++) {
-					if (!(connections[i] < conn | connections[i] > conn)) {
-						idx = i; 
-                        break;
-					}
-				}
-				if (idx != -1) {
-                    connections.splice(idx, 1);
-                }
-			}
+        function updateConnections(connection) {
+            if(connection.sourceId === connection.targetId)
+                jsPlumb.detach(connection);
+            connections = [];
+            var allConnections = jsPlumb.getAllConnections()['blue rectangle'];
+            for(c in allConnections)
+                    connections.push([allConnections[c].sourceId, allConnections[c].targetId]);
         }
+        
         function updateComponents(name, component, remove) {
             var comp = component;
             
@@ -247,7 +231,6 @@ var statemachine = (function () {
 				}
 			}
         }
-        /***************************/
         
         exports.switchInput = switchInput;
         exports.step = step;
@@ -288,38 +271,39 @@ var statemachine = (function () {
     
     function View(div, model, controller) {
         var idmaker = 0;
-        var usedIds = ['input','output','delay','gain','adder'];
+        var usedIds = ['delay','gain','adder'];
         
-        var exampleEndpoint = {
+        var genericEndpoint = {
             endpoint:"Rectangle",
-            paintStyle:{ width:20, height:20, fillStyle:"#eee"},
             scope:"blue rectangle",
             connectorStyle : {
                 lineWidth:2,
                 strokeStyle: "#000",
                 joinstyle: 'round'
             },
-            connector:[ "Flowchart", { stub:[20, 20], gap:10, cornerRadius:5, alwaysRespectStubs:true } ],	
+            connector:[ "Flowchart", { stub:20, gap:0, cornerRadius:5, alwaysRespectStubs:true } ],	
             dropOptions : {
                 tolerance:"touch",
                 hoverClass:"dropHover",
                 activeClass:"dragActive"
-            },
-            isTarget: true,
-            isSource: true
+            }
         };
-        
-        //RESIZE AND REPOSITION THINGS WHEN WINDOW RESIZES
-        var prevWinWidth = $(window).width();
-        $(window).resize(function () {
-            var ratio = $(window).width() / prevWinWidth;
-            $('.item').each(function () {
-                var previousLeft = parseFloat($(this).css('left'));
-                $(this).css({'left':(previousLeft*ratio)});
-            });
-            jsPlumb.repaintEverything();
-            prevWinWidth = $(window).width();
-        });
+        var inputEndpointAttrs = {
+            anchor: 'Left',
+            paintStyle: {width:15, height:15, strokeStyle:"#225588", fillStyle:"transparent", lineWidth:2},
+            isTarget: true,
+            isSource: false,
+            maxConnections: 1
+        };
+        var adderInputAttrs = jQuery.extend(true, {}, inputEndpointAttrs);
+        adderInputAttrs.maxConnections = -1;
+        var outputEndpointAttrs = {
+            anchor: 'Right',
+            paintStyle: {width:15, height:15, fillStyle:"#eee"},
+            isTarget: false,
+            isSource: true,
+            maxConnections: -1
+        };
         
         //CREATE A NEW COMPONENT AT A POSITION
         function createComponent(dataType, dataId, top, left, value, reversed) {
@@ -337,49 +321,52 @@ var statemachine = (function () {
             }
             usedIds.push(nameId);
             
-            var newComponent = $("<div class='item' data-type="+dataType+" id='"+nameId+"'>"+"<img src='"+dataType+".png'>"+
+            var newComponent = $("<div class='item' data-type="+dataType+" id='"+nameId+"'>"+
+                                 "<img src='http://web.mit.edu/lu16j/www/state/"+dataType+".png'>"+
                                  "</div>");
-            newComponent.css({"position":"absolute", "top": top,"left": left});
-            newComponent.find('img').css({'height':'100%','width':'100%'});
+            newComponent.css({"top": top+displayArea.position().top,
+                              "left": left*displayArea.width()+displayArea.position().left});
             
             if(dataType === 'gain') {
-                var valueBox = $("<input type='text' id='"+nameId+"'></input>");
+                var valueBox = $("<input class='gainInput' type='text' id='"+nameId+"'></input>");
                 valueBox.val(value);
                 newComponent.append(valueBox);
                 valueBox.on('keyup', function () {
                     model.updateComponents(nameId, [dataType, parseFloat(valueBox.val())]);
                 });
-                valueBox.css({"position":"relative", "top":"-90%","left":"30%", "height": "80%","width":"40%", "border":"0px", "background":"none"});
             }
             
             var spanId = $("<span class='componentValue' type='text' id="+nameId+">0</span>");
             newComponent.append(spanId);
-            spanId.css({"height": "50%","width":"50%", "text-align":"center"});
             
             displayArea.append(newComponent);
-            model.updateComponents(nameId, [dataType, value]);
-            
-            var maxconns = 1;
-            if(dataType === 'adder')
-                maxconns = 3;
+            if(dataType !== 'input' & dataType !== 'output')
+                model.updateComponents(nameId, [dataType, value]);
             
             jsPlumb.draggable($("#"+nameId), {containment: $('.container')});
             
-            var outputEndpoint = jsPlumb.addEndpoint($('#'+nameId), {anchor: 'Right', isTarget: false, maxConnections: 3}, exampleEndpoint);
-            var inputEndpoint = jsPlumb.addEndpoint($('#'+nameId), {anchor: 'Left', isSource: false, maxConnections: maxconns, paintStyle:{width:20, height:20, strokeStyle:"#225588",
-					fillStyle:"transparent",
-					lineWidth:2}}, exampleEndpoint);
+            var outputEndpoint, inputEndpoint;
+            if(dataType !== 'output')
+                outputEndpoint = jsPlumb.addEndpoint($('#'+nameId), outputEndpointAttrs, genericEndpoint);
+            if(dataType !== 'input' & dataType !== 'adder')
+                inputEndpoint = jsPlumb.addEndpoint($('#'+nameId), inputEndpointAttrs, genericEndpoint);
+            if(dataType === 'adder')
+                inputEndpoint = jsPlumb.addEndpoint($('#'+nameId), adderInputAttrs, genericEndpoint);
             
             function switchEndpoints() {
                 if(inputEndpoint.anchor.x === 0) {
                     inputEndpoint.setAnchor('Right');
                     outputEndpoint.setAnchor('Left');
                     newComponent.attr('data-rev', 'yes');
+                    if(dataType === 'gain')
+                        newComponent.find('img').attr('src', 'http://web.mit.edu/lu16j/www/state/gain-rev.png');
                 }
                 else {
                     inputEndpoint.setAnchor('Left');
                     outputEndpoint.setAnchor('Right');
                     newComponent.attr('data-rev', 'no');
+                    if(dataType === 'gain')
+                        newComponent.find('img').attr('src', 'http://web.mit.edu/lu16j/www/state/gain.png');
                 }
                 return false;
             }
@@ -413,25 +400,25 @@ var statemachine = (function () {
         var resetButton = $('<button class="btn btn-warning">Reset</button>');
         resetButton.on('click', controller.reset);
         
-        var delayBtn = $("<button class='buttonz btn' data-type='delay'><img src='delay.png'></button>");
-        var gainBtn  = $("<button class='buttonz btn' data-type='gain'><img src='gain.png'></button>");
-        var adderBtn = $("<button class='buttonz btn' data-type='adder'><img src='adder.png'></button>");
+        var delayBtn = $("<button class='buttonz btn' data-type='delay' data-toggle='tooltip' title='Delay'>\
+                         <img src='http://web.mit.edu/lu16j/www/state/delay.png'></button>");
+        var gainBtn  = $("<button class='buttonz btn' data-type='gain' data-toggle='tooltip' title='Gain'>\
+                         <img src='http://web.mit.edu/lu16j/www/state/gain.png'></button>");
+        var adderBtn = $("<button class='buttonz btn' data-type='adder' data-toggle='tooltip' title='Adder'>\
+                         <img src='http://web.mit.edu/lu16j/www/state/adder.png'></button>");
         
         componentField.append(delayBtn, gainBtn, adderBtn);
         
         table.append('<table class="table table-striped table-condensed"><thead>\
-                    <tr><th>Time</th><th>X</th><th>Y</th></tr>\
+                    <tr><th>T</th><th>X</th><th>Y</th></tr>\
                     </thead><tbody></tbody></table>');
         
-        buttonField.append(sampleButton, runButton, stepButton, tenButton, resetButton);
+        buttonField.append(sampleButton, runButton, resetButton, stepButton, tenButton);
         
         /***************************************/
         
-//        var prevHTML = div.html();
-//        div.html('');
-//        div.html(prevHTML);
-        var preComps = $('.smComp');
-        var preConns = $('.smConn');
+        var preComp = $('.smComp');
+        var preConn = $('.smConn');
         div.html('');
         
         /***************************************/
@@ -439,52 +426,33 @@ var statemachine = (function () {
         div.append(componentField, displayArea, trash, buttonField, table, chart);
         
         //////CREATE INPUT OUTPUT BUTTONS
-        var inputComponent = $("<div class='item' id='input'><img src='input.png'><span class='componentValue' type='text' id='input'>0</span></div>");
-        var outputComponent = $("<div class='item' id='output'><img src='output.png'><span class='componentValue' type='text' id='output'>0</span></div>");
-        displayArea.append(inputComponent, outputComponent);
-        $('.item').each(function () {
-            $(this).find('span').css({"height": "50%","width":"50%", "text-align":"center"});
-            $(this).find('img').css({'height':'100%','width':'100%'});
-        });
-        inputComponent.css({"position":"absolute", "top": 80,"left": displayArea.position().left});
-        outputComponent.css({"position":"absolute", "top": 80,"left": ($(window).width()-displayArea.position().left)});
-        jsPlumb.addEndpoint($('#input'),  {anchor:'Right', isSource: true, maxConnections:3}, exampleEndpoint);
-        jsPlumb.addEndpoint($('#output'),  {anchor:'Left', isTarget: true, maxConnections:1, paintStyle:{width:20, height:20,
-                    strokeStyle:"#225588",
-					fillStyle:"transparent",
-					lineWidth:2}}, exampleEndpoint);
-        jsPlumb.draggable($('.item'));
+        createComponent('input', 'input', 80, 0);
+        createComponent('output', 'output', 80, (displayArea.width()-80)/displayArea.width());
         
         /***************************************/
+        for(var i=0; i<preComp.length; i++)
+            createComponent(preComp.eq(i).attr('data-type'),
+                            preComp.eq(i).attr('data-id'),
+                            parseFloat(preComp.eq(i).attr('data-top')),
+                            parseFloat(preComp.eq(i).attr('data-left')),
+                            preComp.eq(i).attr('data-value'),
+                            preComp.eq(i).attr('data-rev'));
         
-        function loadComponents(preComp, preConn) {
-            for(var i=0; i<preComp.length; i++)
-                createComponent(preComp.eq(i).attr('data-type'),
-                                preComp.eq(i).attr('data-id'),
-                                preComp.eq(i).attr('data-top'),
-                                preComp.eq(i).attr('data-left'),
-                                preComp.eq(i).attr('data-value'),
-                                preComp.eq(i).attr('data-rev'));
-            
-            for(var i=0; i<preConn.length; i++) {
-                var fromPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-from'))[0];
-                var toPoint;
-                if(preConn.eq(i).attr('data-to') === 'output')
-                    toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[0];
-                else
-                    toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[1];
-                model.updateConnections(jsPlumb.connect({source: fromPoint, target: toPoint}));
-            }
+        for(var i=0; i<preConn.length; i++) {
+            var fromPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-from'))[0];
+            var toPoint;
+            if(preConn.eq(i).attr('data-to') === 'output')
+                toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[0];
+            else
+                toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[1];
+            model.updateConnections(jsPlumb.connect({source: fromPoint, target: toPoint}));
         }
-        
-        loadComponents(preComps, preConns);
         
         /***************************************/
         
         chart.highcharts({
             title: {text: '', floating: true},
             xAxis: {title: {text: 'Time Step'}, categories: []},
-            exporting: {enabled: false},
             legend: {floating: true, verticalAlign: 'top'},
             series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
                     {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
@@ -492,8 +460,22 @@ var statemachine = (function () {
         
         //OTHER FUNCTIONS
         
+        //RESIZE EVERYTHING
+        var prevWinWidth = displayArea.width();
+        var prevWinLeft = displayArea.position().left;
+        $(window).on('resize', function () {
+            var ratio = displayArea.width() / prevWinWidth;
+            $('.item').each(function () {
+                var previousLeft = parseFloat($(this).css('left'))-prevWinLeft;
+                $(this).css({'left':(previousLeft*ratio+displayArea.position().left)});
+            });
+            jsPlumb.repaintEverything();
+            prevWinWidth = displayArea.width();
+            prevWinLeft = displayArea.position().left;
+        });
+        
         function buttonClicked(buttonz, button){
-            createComponent(buttonz.attr('data-type'), undefined, buttonz.position().top, buttonz.position().left);
+            createComponent(buttonz.attr('data-type'), undefined, buttonz.position().top-displayArea.position().top, 0);
         }
         
         $(".buttonz").on("click",function(){
@@ -503,6 +485,7 @@ var statemachine = (function () {
         $('.trash').droppable({
             over: function(event, ui) {
                 if((['input','output']).indexOf(ui.draggable[0].id) < 0) {
+                    delete usedIds[usedIds.indexOf(ui.draggable[0].id)];
                     jsPlumb.removeAllEndpoints(ui.draggable);
                     model.updateComponents(ui.draggable[0].id, [], true);
                     $(ui.draggable).remove();
@@ -512,7 +495,7 @@ var statemachine = (function () {
         
         function updateSpans() {
             $('.componentValue').each(function () {
-                this.innerHTML = model.getValue(this.id);
+                this.innerHTML = Math.round(model.getValue(this.id)*100000)/100000;
             });
         }
         
@@ -553,21 +536,21 @@ var statemachine = (function () {
     }
     
     function setup(div) {
+        jsPlumb.ready(function() {
+            jsPlumb.importDefaults({
+                ConnectionOverlays: [[ "Arrow", { location: -10 } ]]
+            });
+            jsPlumb.bind("connection", function(info) {
+                model.updateConnections(info.connection);
+            });
+            jsPlumb.bind("connectionDetached", function(info) {
+                model.updateConnections(info.connection);
+            });
+        });
+        
         var model = Model();
         var controller = Controller(model);
         var view = View(div, model, controller);
-      
-        jsPlumb.ready(function() {
-            jsPlumb.importDefaults({
-                ConnectionOverlays: [[ "Arrow", { location:-10 } ]]
-            });
-            jsPlumb.bind("connection", function(info, originalEvent) {
-                model.updateConnections(info.connection);
-            });
-            jsPlumb.bind("connectionDetached", function(info, originalEvent) {
-                model.updateConnections(info.connection, true);
-            });
-        });
     }
     
     return {setup: setup};

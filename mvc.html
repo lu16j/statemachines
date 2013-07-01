@@ -2,15 +2,16 @@
 <head>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"></script>
 <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"></script>
-<script type="text/javascript" src="jsPlumb.js "></script>
+<script type="text/javascript" src="http://web.mit.edu/lu16j/www/state/jsPlumb.js "></script>
 <script src="http://code.highcharts.com/highcharts.js"></script>
 <script src="http://code.highcharts.com/modules/exporting.js"></script>
-<script src="../boots/bootstrap/js/bootstrap.min.js"></script>
-<link href="../boots/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-<link href="../boots/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
+<script src="http://web.mit.edu/lu16j/www/boots/bootstrap/js/bootstrap.min.js"></script>
+<link href="http://web.mit.edu/lu16j/www/boots/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+<link href="http://web.mit.edu/lu16j/www/boots/bootstrap/css/bootstrap-responsive.min.css" rel="stylesheet">
 <script src="examples.js"></script>
 <script src="mvc.js"></script>
 <link href="mvc.css" rel="stylesheet">
+<title>6.01 State Machine Simulator</title>
 </head>
 <body>
     <div class="navbar">
@@ -18,38 +19,131 @@
             <a class="brand" href="#">6.01 State Machine Simulator</a>
             <ul class="nav">
                 <li><a href="#popup" data-toggle="modal">About</a></li>
-                <li><a href="#" class="loadSM">Load</a></li>
+                <li><a href="#savepopup" data-toggle="modal">Save As</a></li>
+                <li><a href="#loadpopup" data-toggle="modal">Load</a></li>
+                <li><a href="#" onclick="loadDemo('clear')">Clear</a></li>
             </ul>
         </div>
     </div>
-    <div id="popup" class="modal hide fade" tabindex="-1" role="dialog" aria-labelledby="popupLabel" aria-hidden="true">
+    
+    <div id="popup" class="modal hide fade" aria-hidden="true">
         <div class="modal-header">
-            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
-            <h3 id="popupLabel">About</h3>
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h3>About</h3>
         </div>
         <div class="modal-body">
-            <p>This is a visual representation of an LTI system, or a 6.01 state machine.</p>
-            <ul>
-                <li>We have created a simple oscillating demo. Click "Run" to see it in action.</li>
-                <li>Or, if you want to make your own, drag undesired components to the trash.</li>
-                <li>Click on a left panel button to create a new component.</li>
-                <li>Drag from a source (solid gray) to a target (empty blue) to create a connection.</li>
-                <li>Only an Adder is allowed multiple input connections!</li>
-                <li>Once everything is connected, run it or "Step" it for closer analysis.</li>
-                <li>Or click "See 1st 10" to quickly glimpse its long-term behavior/</li>
-                <li>The input defaults to Unit Sample. Click to toggle to Unit Step.</li>
-                <li>Right click on a component to reverse its orientation.</li>
+            <h3>This is a visual representation of an LTI system, or a 6.01 state machine.</h3>
+            <!--        Tabs!-->
+            <ul class="nav nav-tabs">
+                <li class="active"><a href="#basicfunctions" data-toggle="tab">Get Started</a></li>
+                <li><a href="#creatingmachine" data-toggle="tab">Creating</a></li>
+                <li><a href="#advancedfeatures" data-toggle="tab">Saving</a></li>
+                <li><a href="#embeddingsm" data-toggle="tab">Embedding</a></li>
+                <li><a href="#credits" data-toggle="tab">Credits</a></li>
             </ul>
+            <!-- The tab content. -->
+            <div id="my-tab-content" class="tab-content">
+                <div class="tab-pane active" id="basicfunctions">
+                    <ul>
+                        <li>Preloaded is a simple oscillating demo - click <strong>Start</strong> to see it in action.</li>
+                        <li>Or click <strong>See 1st 10</strong> to quickly glimpse its long-term behavior.</li>
+                        <li>Or <strong>Step</strong> through it for closer analysis.</li>
+                        <li>Or drag undesired components to the trash and click on the left panel to create new ones.</li>
+                        <li><strong>Clear</strong> to start fresh.</li>
+                        <li>Click the chart legend to hide the input or output graph.</li>
+                    </ul>
+                </div>
+                <div class="tab-pane" id="creatingmachine">
+                    <ul>
+                        <li>Drag a source (solid gray) and drop it in a target (empty blue) to create a connection.</li>
+                        <li><strong>Only an Adder is allowed multiple input connections!</strong></li>
+                        <li>The input defaults to <strong>Unit Sample</strong>. Click to toggle to <strong>Unit Step</strong>.</li>
+                        <li>Right click on a component to reverse its orientation.</li>
+                    </ul>
+                </div>
+                <div class="tab-pane" id="advancedfeatures">
+                    <ul>
+                        <li>If you want to save a machine for later use, click <strong>Save</strong> in the navbar to save it as a local text file.</li>
+                        <li>Click <strong>Load</strong> in the navbar to load your own machine or another preloaded demo.</li>
+                    </ul>
+                </div>
+                <div class="tab-pane" id="embeddingsm">
+                    <p>The following code includes <strong>jQuery, jQueryUI, jsPlumb, Highcharts.js, and Bootstrap.</strong>
+                        Include what you need, and feel free to limit the app's width: <code>...class="statemachine" style="width:600px"</code></p>
+                    <p>If you want your embedded app to load a custom machine by default,
+                        simply paste the contents of your saved .txt file into
+                        <code>&lt;div class="statemachine"&gt;...&lt;/div&gt;</code></p>
+                    <pre>
+&lt;script src="https://ajax.googleapis.com/ajax/libs/jquery/1.10.1/jquery.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.10.3/jquery-ui.min.js"&gt;&lt;/script&gt;
+&lt;script type="text/javascript" src="http://web.mit.edu/lu16j/www/state/jsPlumb.js "&gt;&lt;/script&gt;
+&lt;script src="http://code.highcharts.com/highcharts.js"&gt;&lt;/script&gt;
+&lt;script src="http://code.highcharts.com/modules/exporting.js"&gt;&lt;/script&gt;
+&lt;script src="http://web.mit.edu/lu16j/www/boots/bootstrap/js/bootstrap.min.js"&gt;&lt;/script&gt;
+&lt;link href="http://web.mit.edu/lu16j/www/boots/bootstrap/css/bootstrap.min.css" rel="stylesheet"&gt;
+&lt;script src="http://web.mit.edu/lu16j/www/state/examples.js"&gt;&lt;/script&gt;
+&lt;script src="http://web.mit.edu/lu16j/www/state/mvc.js"&gt;&lt;/script&gt;
+&lt;link href="http://web.mit.edu/lu16j/www/state/mvc.css" rel="stylesheet"&gt;
+&lt;div class="statemachine"&gt;&lt;/div&gt;
+                    </pre>
+                </div>
+                <div class="tab-pane" id="credits">
+                    <ul>
+                        <li>jQuery, jQueryUI</li>
+                        <li>Layout: Twitter Bootstrap</li>
+                        <li>Draggable Connectors: jsPlumb</li>
+                        <li>Dynamic Chart: Highcharts</li>
+                    </ul>
+                </div>
+            </div>
         </div>
         <div class="modal-footer">
             <button class="btn" data-dismiss="modal" aria-hidden="true">I understand now!</button>
         </div>
     </div>
+    
+    <div id="savepopup" class="modal hide fade" aria-hidden="true">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h3>Save As...</h3>
+        </div>
+        <div class="modal-body">
+            SM-<input id="fileToSaveAs" placeholder="File Name">.txt
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" data-dismiss="modal" aria-hidden="true" onclick="saveSM()">Save</button>
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        </div>
+    </div>
+    
+    <div id="loadpopup" class="modal hide fade" aria-hidden="true">
+        <div class="modal-header">
+            <button type="button" class="close" data-dismiss="modal" aria-hidden="true">&times;</button>
+            <h3>Load...</h3>
+        </div>
+        <div class="modal-body">
+            <input type="file" id="fileToLoad">
+            <p>Demos:</p>
+            <ul>
+                <li><a href="#" data-dismiss="modal" aria-hidden="true" onclick="loadDemo('2equiv')">Two Equivalent Systems</a>
+                : Plug either system into output, and behold their equivalency.</li>
+                <li><a href="#" data-dismiss="modal" aria-hidden="true" onclick="loadDemo('2ordercyclic')">Second Order Cyclic</a>
+                : A double feedback system with complex behavior.</li>
+                <li><a href="#" data-dismiss="modal" aria-hidden="true" onclick="loadDemo('wallFinder')">Wall Finder</a>
+                : A staple of 6.01. Set the input to Unit Step, and see which K value (currently 0) gives the best behavior.</li>
+            </ul>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-primary" data-dismiss="modal" aria-hidden="true" onclick="loadSM()">Load</button>
+            <button class="btn" data-dismiss="modal" aria-hidden="true">Cancel</button>
+        </div>
+    </div>
+    
     <div class="container">
         <div class="statemachine">
-            <div class="smComp" data-type="delay" data-id="delay0" data-top="160" data-left="600" data-rev="yes"></div>
-            <div class="smComp" data-type="gain" data-id="gain1" data-top="80" data-left="800" data-value="-1"></div>
-            <div class="smComp" data-type="adder" data-id="adder2" data-top="80" data-left="500"></div>
+            <div class="smComp" data-type="delay" data-id="delay0" data-top="160" data-left="0.4" data-rev="yes"></div>
+            <div class="smComp" data-type="gain" data-id="gain1" data-top="80" data-left="0.6" data-value="-1"></div>
+            <div class="smComp" data-type="adder" data-id="adder2" data-top="80" data-left="0.3"></div>
             <div class="smConn" data-from="delay0" data-to="adder2"></div>
             <div class="smConn" data-from="input" data-to="adder2"></div>
             <div class="smConn" data-from="adder2" data-to="gain1"></div>
