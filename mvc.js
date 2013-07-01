@@ -1,156 +1,4 @@
 var statemachine = (function () {
-    /*
-    
-    AN EVENT HANDLER
-    
-    */
-    function UpdateHandler() {
-        var handlers = {};
-        
-        function on(event, callback) {
-            var callbacks = handlers[event];
-            if (callbacks === undefined) {
-                callbacks = [];
-            }
-            callbacks.push(callback);
-            handlers[event] = callbacks;
-        }
-        function trigger(event, data) {
-            var callbacks = handlers[event];
-            if (callbacks !== undefined) {
-                for (var i = 0; i < callbacks.length; i += 1)
-                    callbacks[i](data);
-            }
-        }
-        
-        return {on: on, trigger: trigger};
-    }
-    /*
-    
-    THE STATE MACHINE OBJECT
-    
-    */
-    function SM() {
-        var exports = {};
-        
-        var timeIndex = 0;
-        var values = {};
-        var functions = {};
-        
-        function component(name, type, input, K) {
-            values[name] = [0];
-            if(input.length === 0)
-                functions[name] = function (i) { return 0; };
-            else {
-                if(type === 'delay') {
-                    functions[name] = function (i) {
-                        return values[input][i-1];              //RETURN PREVIOUS VALUE OF INPUT NODE
-                    };
-                }
-                if(type === 'gain') {
-                    functions[name] = function (i) {
-                        return K * values[input][i];            //RETURN K TIMES VALUE OF INPUT NODE
-                    };
-                }
-                if(type === 'adder') {
-                    functions[name] = function (i) {
-                        var output = 0;
-                        for(inp in input)
-                            output += values[input[inp]][i];    //RETURNS SUM OF ALL INPUT NODES
-                        return output;
-                    };
-                }
-                if(type === 'output') {
-                    functions.output = function (i) {
-                        return values[input][i];                //RETURNS VALUE OF INPUT NODE
-                    };
-                }
-            }
-        }
-        
-        function step(inp) {
-            //  Identifies the current index
-            var i = values.input.length;
-            
-            //  Updates input value array
-            values.input.push(inp);
-            
-            //  Keeps track of finished calculations, skips component if its input not ready
-            var done = [];
-            var next;
-            while(done.length < Object.keys(functions).length) {
-                for(f in functions) {
-                    if(done.indexOf(f) < 0) {
-                        next = functions[f](i);
-                        if(next !== undefined & !isNaN(next)) {
-                            values[f].push(next);
-                            done.push(f);
-                        }
-                    }
-                }
-            }
-            
-            //  Updates time index
-            timeIndex += 1;
-            
-            return values.output[i];
-        }
-        
-        //  ---NEEDS UPDATE---
-        function transduce(inps) {
-            var results = [];
-            for(i in inps)
-                results.push(step(inps[i]));
-            return results;
-        }
-        
-        //  Initializes machine according to components and connections
-        function initialize(comp, conn) {
-            timeIndex = 0;
-            values.input = [0];
-            var components = jQuery.extend(true, {}, comp);
-            var connections = jQuery.extend(true, {}, conn);
-            
-            for(c in components)
-                components[c].splice(1,0,[]);
-            components.output = ['output',[]];
-            
-            //  Defines each component's input(s) based on connections
-            for(c in connections) {
-                var conn = connections[c];
-                var parent = conn[0];
-                var child = conn[1];
-                var type = components[child][0];
-                switch (type) {
-                    case 'adder':
-                        if(components[child][1].indexOf(parent) < 0)
-                            components[child][1].push(parent);
-                        break
-                    default:
-                        components[child][1] = parent;
-                }
-            }
-            
-            //  Defines the internal components
-            for(c in components) {
-                var comp = components[c];
-                component(c, comp[0], comp[1], comp[2]);
-            }
-        }
-        
-        //  RETURNS THE CURRENT VALUE OF A COMPONENT
-        function getCurrentValue(id) {
-            return values[id][values[id].length-1];
-        }
-        
-        exports.timeIndex = function () { return timeIndex; };
-        exports.step = step;
-        exports.transduce = transduce;
-        exports.initialize = initialize;
-        exports.getCurrentValue = getCurrentValue;
-        
-        return exports;
-    }
     
     function Model() {
         var sm = SM(), interval;
@@ -270,42 +118,61 @@ var statemachine = (function () {
     }
     
     function View(div, model, controller) {
-        var idmaker = 0;
-        var usedIds = ['delay','gain','adder'];
         
-        var genericEndpoint = {
-            endpoint:"Rectangle",
-            scope:"blue rectangle",
-            connectorStyle : {
-                lineWidth:2,
-                strokeStyle: "#000",
-                joinstyle: 'round'
-            },
-            connector:[ "Flowchart", { stub:20, gap:0, cornerRadius:5, alwaysRespectStubs:true } ],	
-            dropOptions : {
-                tolerance:"touch",
-                hoverClass:"dropHover",
-                activeClass:"dragActive"
-            }
-        };
-        var inputEndpointAttrs = {
-            anchor: 'Left',
-            paintStyle: {width:15, height:15, strokeStyle:"#225588", fillStyle:"transparent", lineWidth:2},
-            isTarget: true,
-            isSource: false,
-            maxConnections: 1
-        };
-        var adderInputAttrs = jQuery.extend(true, {}, inputEndpointAttrs);
-        adderInputAttrs.maxConnections = -1;
-        var outputEndpointAttrs = {
-            anchor: 'Right',
-            paintStyle: {width:15, height:15, fillStyle:"#eee"},
-            isTarget: false,
-            isSource: true,
-            maxConnections: -1
-        };
+        //DEFINE EVERYTHING
+        var displayArea = $("<div class='displayArea view wide'></div>");
+        var componentField = $("<div class='componentField view narrow'></div>");
+        var trash = $("<div class='trash short narrow'><i class='icon-trash'></i><strong>TRASH</strong></div>");
+        var buttonField =  $("<div class='buttonField short wide'></div>");
+        var chart = $('<div class="wide view"></div>');
+        var table = $('<div class="narrow view"></div>');
+        
+        /***************************************/
+        //PRELOAD MACHINE (IF ANY)s
+        var preComp = $('.smComp');
+        var preConn = $('.smConn');
+        div.html('');
+        
+        /***************************************/
+        
+        div.append(componentField, displayArea, trash, buttonField, table, chart);
+        
+        var sampleButton = $('<button class="btn btn-info">Unit Sample</button>');
+        sampleButton.on('click', controller.switchInput);
+        var runButton = $('<button class="btn btn-success">Start</button>');
+        runButton.on('click', controller.run);
+        var stepButton = $('<button class="btn btn-primary">Step</button>');
+        stepButton.on('click', controller.step);
+        var tenButton = $('<button class="btn btn-danger">Show 1st 10</button>');
+        tenButton.on('click', controller.firstTen);
+        var resetButton = $('<button class="btn btn-warning">Reset</button>');
+        resetButton.on('click', controller.reset);
+        
+        buttonField.append(sampleButton, runButton, resetButton, stepButton, tenButton);
+        
+        var delayBtn = $("<button class='buttonz btn' data-type='delay' data-toggle='tooltip' title='Delay'>\
+                         <img src='http://web.mit.edu/lu16j/www/state/delay.png'></button>");
+        var gainBtn  = $("<button class='buttonz btn' data-type='gain' data-toggle='tooltip' title='Gain'>\
+                         <img src='http://web.mit.edu/lu16j/www/state/gain.png'></button>");
+        var adderBtn = $("<button class='buttonz btn' data-type='adder' data-toggle='tooltip' title='Adder'>\
+                         <img src='http://web.mit.edu/lu16j/www/state/adder.png'></button>");
+        
+        componentField.append(delayBtn, gainBtn, adderBtn);
+        
+        table.append('<table class="table table-striped table-condensed"><thead>\
+                    <tr><th>T</th><th>X</th><th>Y</th></tr>\
+                    </thead><tbody></tbody></table>');
+        
+        chart.highcharts({
+            title: {text: '', floating: true},
+            xAxis: {title: {text: 'Time Step'}, categories: []},
+            legend: {floating: true, verticalAlign: 'top'},
+            series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
+                    {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
+        });
         
         //CREATE A NEW COMPONENT AT A POSITION
+        var usedIds = ['delay','gain','adder'];
         function createComponent(dataType, dataId, top, left, value, reversed) {
             if(value === undefined)
                 value = 0;
@@ -314,7 +181,7 @@ var statemachine = (function () {
             
             var nameId = dataId;
             if(usedIds.indexOf(dataId) > -1) {
-                idmaker = 0;
+                var idmaker = 0;
                 while(usedIds.indexOf(dataId + idmaker) > -1)
                     idmaker = idmaker + 1;
                 nameId = dataId + idmaker;
@@ -381,55 +248,12 @@ var statemachine = (function () {
             
         }
         
-        //DEFINE EVERYTHING
-        var displayArea = $("<div class='displayArea view wide'></div>");
-        var componentField = $("<div class='componentField view narrow'></div>");
-        var trash = $("<div class='trash short narrow'><i class='icon-trash'></i><strong>TRASH</strong></div>");
-        var buttonField =  $("<div class='buttonField short wide'></div>");
-        var chart = $('<div class="wide view"></div>');
-        var table = $('<div class="narrow view"></div>');
-        
-        var sampleButton = $('<button class="btn btn-info">Unit Sample</button>');
-        sampleButton.on('click', controller.switchInput);
-        var runButton = $('<button class="btn btn-success">Start</button>');
-        runButton.on('click', controller.run);
-        var stepButton = $('<button class="btn btn-primary">Step</button>');
-        stepButton.on('click', controller.step);
-        var tenButton = $('<button class="btn btn-danger">Show 1st 10</button>');
-        tenButton.on('click', controller.firstTen);
-        var resetButton = $('<button class="btn btn-warning">Reset</button>');
-        resetButton.on('click', controller.reset);
-        
-        var delayBtn = $("<button class='buttonz btn' data-type='delay' data-toggle='tooltip' title='Delay'>\
-                         <img src='http://web.mit.edu/lu16j/www/state/delay.png'></button>");
-        var gainBtn  = $("<button class='buttonz btn' data-type='gain' data-toggle='tooltip' title='Gain'>\
-                         <img src='http://web.mit.edu/lu16j/www/state/gain.png'></button>");
-        var adderBtn = $("<button class='buttonz btn' data-type='adder' data-toggle='tooltip' title='Adder'>\
-                         <img src='http://web.mit.edu/lu16j/www/state/adder.png'></button>");
-        
-        componentField.append(delayBtn, gainBtn, adderBtn);
-        
-        table.append('<table class="table table-striped table-condensed"><thead>\
-                    <tr><th>T</th><th>X</th><th>Y</th></tr>\
-                    </thead><tbody></tbody></table>');
-        
-        buttonField.append(sampleButton, runButton, resetButton, stepButton, tenButton);
-        
-        /***************************************/
-        
-        var preComp = $('.smComp');
-        var preConn = $('.smConn');
-        div.html('');
-        
-        /***************************************/
-        
-        div.append(componentField, displayArea, trash, buttonField, table, chart);
-        
         //////CREATE INPUT OUTPUT BUTTONS
         createComponent('input', 'input', 80, 0);
         createComponent('output', 'output', 80, (displayArea.width()-80)/displayArea.width());
         
         /***************************************/
+        //CREATE PRELOADED MACHINE (IF ANY)
         for(var i=0; i<preComp.length; i++)
             createComponent(preComp.eq(i).attr('data-type'),
                             preComp.eq(i).attr('data-id'),
@@ -449,14 +273,6 @@ var statemachine = (function () {
         }
         
         /***************************************/
-        
-        chart.highcharts({
-            title: {text: '', floating: true},
-            xAxis: {title: {text: 'Time Step'}, categories: []},
-            legend: {floating: true, verticalAlign: 'top'},
-            series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
-                    {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
-        });
         
         //OTHER FUNCTIONS
         
