@@ -358,6 +358,28 @@ var statemachine = (function () {
         model.on('step', step);
         model.on('reset', reset);
         model.on('firstTen', firstTen);
+        
+        /*******************
+        *
+        *    B E T A
+        *
+        ********************/
+        $('.buttonz').on('mousedown', function() {
+            $(this).on('mouseleave',function(e){
+                createComponent($(this).attr('data-type'), undefined,
+                                e.pageY-displayArea.position().top-15,
+                                (e.pageX-displayArea.position().left-40)/displayArea.width());
+                $(this).off('mouseleave');
+            });
+            $(this).on('mouseup', function() {
+                $(this).off('mouseleave');
+            });
+        });
+        /****************
+        *
+        *
+        *
+        ****************/
     }
     
     function setup(div) {
