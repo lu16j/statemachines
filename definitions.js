@@ -51,17 +51,22 @@ function SM() {
         //  Keeps track of finished calculations, skips component if its input not ready
         var done = [];
         var next;
-        while(done.length < Object.keys(functions).length) {
+        var updated = true;
+        while(done.length < Object.keys(functions).length & updated === true) {
+            updated = false;
             for(f in functions) {
                 if(done.indexOf(f) < 0) {
                     next = functions[f](i);
                     if(next !== undefined & !isNaN(next)) {
                         values[f].push(next);
                         done.push(f);
+                        updated = true;
                     }
                 }
             }
         }
+        if(updated === false)
+            alert('You have created an invalid machine, possibly containing a feedback loop with no delay.');
         
         //  Updates time index
         timeIndex += 1;
