@@ -174,7 +174,7 @@ var statemachine = (function () {
         //CREATE A NEW COMPONENT AT A POSITION
         var usedIds = ['delay','gain','adder'];
         function createComponent(dataType, dataId, top, left, value, reversed) {
-            if(value === undefined)
+            if(isNaN(value))
                 value = 0;
             if(dataId === undefined)
                 dataId = dataType;
@@ -198,8 +198,13 @@ var statemachine = (function () {
                 var valueBox = $("<input class='gainInput' type='text' id='"+nameId+"'></input>");
                 valueBox.val(value);
                 newComponent.append(valueBox);
-                valueBox.on('keyup', function () {
-                    model.updateComponents(nameId, [dataType, parseFloat(valueBox.val())]);
+                valueBox.on('keyup', function (evt) {
+                    var updatedValue = valueBox.val();
+                    if(isNaN(updatedValue) & updatedValue !== '-' & updatedValue !== '.' & updatedValue !== '-.') {
+                        updatedValue = 0;
+                        valueBox.val('');
+                    }
+                    model.updateComponents(nameId, [dataType, parseFloat(updatedValue)]);
                 });
             }
             
