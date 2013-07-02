@@ -18,11 +18,13 @@ function saveSM() {
         }
     }
     
-    var connection;
     var connections = jsPlumb.getAllConnections()['blue rectangle'];
     for(c in connections) {
-        connection = connections[c];
-        saveConnection(connection.sourceId, connection.targetId);
+        var connection = connections[c];
+        var newString = '<div class="smConn" data-from="'+
+            connection.sourceId+'" data-to="'+
+            connection.targetId+'"></div>\n';
+        htmlString += newString;
     }
     
     var textToWrite = htmlString;
@@ -50,13 +52,6 @@ function saveSM() {
 function destroyClickedElement(event)
 {
 	document.body.removeChild(event.target);
-}
-
-function saveConnection(fromId, toId) {
-    var newString = '<div class="smConn" data-from="'+
-        fromId+'" data-to="'+
-        toId+'"></div>\n';
-    htmlString += newString;
 }
 
 var demos = {
@@ -124,29 +119,23 @@ function loadSM() {
 	fileReader.onload = function(fileLoadedEvent) 
 	{
 		var textFromFileLoaded = fileLoadedEvent.target.result;
-		htmlString = textFromFileLoaded;
-        $('.statemachine').each(function () {
-            $('.item').each(function () {
-                jsPlumb.removeAllEndpoints($(this));
-            });
-            $(window).off();
-            jsPlumb.unbind();
-            $(this).html(htmlString);
-            statemachine.setup($(this));
-        });
+		loadHTML(textFromFileLoaded);
 	};
 	fileReader.readAsText(fileToLoad, "UTF-8");
 }
 
 function loadDemo(demo) {
-    htmlString = demos[demo];
+    loadHTML(demos[demo]);
+}
+
+function loadHTML(string) {
     $('.statemachine').each(function () {
         $('.item').each(function () {
             jsPlumb.removeAllEndpoints($(this));
         });
         $(window).off();
         jsPlumb.unbind();
-        $(this).html(htmlString);
+        $(this).html(string);
         statemachine.setup($(this));
     });
 }

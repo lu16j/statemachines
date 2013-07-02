@@ -290,12 +290,8 @@ var statemachine = (function () {
             prevWinLeft = displayArea.position().left;
         });
         
-        function buttonClicked(buttonz, button){
-            createComponent(buttonz.attr('data-type'), undefined, buttonz.position().top-displayArea.position().top, 0);
-        }
-        
         $(".buttonz").on("click",function(){
-            buttonClicked($(this), this);
+            createComponent($(this).attr('data-type'), undefined, $(this).position().top-displayArea.position().top, 0);
         });
         
         $('.trash').droppable({
