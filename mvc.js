@@ -170,6 +170,7 @@ var statemachine = (function () {
             series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
                     {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
         });
+        $('tspan').eq($('tspan').length-1).hide();
         
         //CREATE A NEW COMPONENT AT A POSITION
         var usedIds = ['delay','gain','adder'];
@@ -201,8 +202,8 @@ var statemachine = (function () {
                 valueBox.on('keyup', function (evt) {
                     var updatedValue = valueBox.val();
                     if(isNaN(updatedValue) & updatedValue !== '-' & updatedValue !== '.' & updatedValue !== '-.') {
+                        valueBox.val('0');
                         updatedValue = 0;
-                        valueBox.val('');
                     }
                     model.updateComponents(nameId, [dataType, parseFloat(updatedValue)]);
                 });
@@ -251,8 +252,15 @@ var statemachine = (function () {
                 return switchEndpoints();
             };
             
+            newComponent.on('dragstop', function (evt) {
+                if(evt.pageY > buttonField.position().top)
+                    jsPlumb.animate(nameId, {top: buttonField.position().top-newComponent.height()});
+                if(evt.pageX < displayArea.position().left)
+                    jsPlumb.animate(nameId, {left: displayArea.position().left});
+            });
         }
         
+        /************************/
         //////CREATE INPUT OUTPUT BUTTONS
         createComponent('input', 'input', 80, 0);
         createComponent('output', 'output', 80, (displayArea.width()-80)/displayArea.width());
@@ -363,11 +371,11 @@ var statemachine = (function () {
             jsPlumb.bind("connectionDetached", function(info) {
                 model.updateConnections(info.connection);
             });
-        });
         
-        var model = Model();
-        var controller = Controller(model);
-        var view = View(div, model, controller);
+            var model = Model();
+            var controller = Controller(model);
+            var view = View(div, model, controller);
+        });
     }
     
     return {setup: setup};

@@ -114,14 +114,17 @@ var demos = {
 
 function loadSM() {
     var fileToLoad = document.getElementById("fileToLoad").files[0];
-
-	var fileReader = new FileReader();
-	fileReader.onload = function(fileLoadedEvent) 
-	{
-		var textFromFileLoaded = fileLoadedEvent.target.result;
-		loadHTML(textFromFileLoaded);
-	};
-	fileReader.readAsText(fileToLoad, "UTF-8");
+    if(fileToLoad.type !== 'text/plain')
+        alert('Wrong file type!');
+    else {
+        var fileReader = new FileReader();
+        fileReader.onload = function(fileLoadedEvent) 
+        {
+            var textFromFileLoaded = fileLoadedEvent.target.result;
+            loadHTML(textFromFileLoaded);
+        };
+        fileReader.readAsText(fileToLoad, "UTF-8");
+    }
 }
 
 function loadDemo(demo) {
