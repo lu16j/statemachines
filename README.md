@@ -7,6 +7,7 @@ Features (Video demos coming soon)
 Editing
 -------
 Create components by clicking on their respective buttons; drag to position, drag and drop from solid gray source endpoint to empty blue target endpoint to connect.  
+CHROME ONLY: Create components by dragging in from their respective buttons.  
 Right click to reverse a component's orientation.  
 Dispose components by dragging to the trash or by "Clear"ing the entire machine.
 Running
