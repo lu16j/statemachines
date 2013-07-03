@@ -27,7 +27,7 @@ Primary setup in mvc.js is done mostly through a Model-View-Controller mechanism
 All visual elements except for the navigation bar are dynamically appended through Javascript.  
 The State Machine back-end module is saved in definitions.js, along with several layout definitions for jsPlumb.  
 Saving and loading functions are saved in saving.js.  
-Images, and code for Bootstrap and jsPlumb, are currently hosted on my Athena locker - web.mit.edu/lu16j/www
+Images, and code for Bootstrap and jsPlumb, are currently hosted on my Athena locker - http://web.mit.edu/lu16j/www/
 Usage
 =====
 http://web.mit.edu/6.mitx/www/6.01-statemachine/mvc.html  
