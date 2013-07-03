@@ -2,11 +2,15 @@ statemachines
 =============
 A visual representation and interactive simulation for State Machines, as covered in MIT's 6.01 (Intro to EECS) course, otherwise known as LTI (linear time-invariant) systems.  
 
-Features (Video demos coming soon)
-============================
+Features
+========
+Video Demos:
+Creating - http://www.youtube.com/watch?v=DYXZvZySlVU
+Saving, etc - http://www.youtube.com/watch?v=bNBBbvG6Clg
 Editing
 -------
 Create components by clicking on their respective buttons; drag to position, drag and drop from solid gray source endpoint to empty blue target endpoint to connect.  
+CHROME ONLY: Create components by dragging in from their respective buttons.  
 Right click to reverse a component's orientation.  
 Dispose components by dragging to the trash or by "Clear"ing the entire machine.
 Running
@@ -26,9 +30,9 @@ Primary setup in mvc.js is done mostly through a Model-View-Controller mechanism
 All visual elements except for the navigation bar are dynamically appended through Javascript.  
 The State Machine back-end module is saved in definitions.js, along with several layout definitions for jsPlumb.  
 Saving and loading functions are saved in saving.js.  
-Images, and code for Bootstrap and jsPlumb, are currently hosted on my Athena locker - web.mit.edu/lu16j/www
+Images, and code for Bootstrap and jsPlumb, are currently hosted on my Athena locker - http://web.mit.edu/lu16j/www/
 Usage
 =====
-web.mit.edu/6.mitx/www/6.01-statemachine/mvc.html  
+http://web.mit.edu/6.mitx/www/6.01-statemachine/mvc.html  
 The website is designed for student interaction. Instructors are encouraged to send skeleton .txt files for students to load and interact with, or to embed the applet with a preloaded machine in a class webpage.  
 Embedding code is provided on the website, under "Embedding" in the "About" popup.
