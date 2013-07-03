@@ -65,8 +65,11 @@ function SM() {
                 }
             }
         }
-        if(updated === false)
-            alert('You have created an invalid machine, possibly containing a feedback loop with no delay.');
+        //if infinite loop detected
+        if(updated === false) {
+            alert("You have created an invalid machine, possibly containing a feedback loop with no delay.");
+            throw "You have created an invalid machine, possibly containing a feedback loop with no delay.";
+        }
         
         //  Updates time index
         timeIndex += 1;
@@ -77,8 +80,12 @@ function SM() {
     //  ---NEEDS UPDATE---
     function transduce(inps) {
         var results = [];
-        for(i in inps)
-            results.push(step(inps[i]));
+        try {
+            for(i in inps)
+                results.push(step(inps[i]));
+        } catch(e) {
+            throw e;
+        }
         return results;
     }
     

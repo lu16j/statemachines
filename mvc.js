@@ -1,23 +1,27 @@
 var statemachine = (function () {
-    
     function Model() {
-        var sm = SM(), interval;
-        var exports = {}, sample = true, handler = UpdateHandler();
-        //name: [type, input(s)[, K]]
-        var components = {};
-        //[parent, child]
-        var connections = [];
+        var sm = SM(),
+            exports = {},
+            sample = true,
+            handler = UpdateHandler(),
+            components = {},
+            connections = [],
+            interval;
         
         function step() {
             var input = 1;
             var time = sm.timeIndex();
-            if(time === 0) {
+            if(time === 0)
                 sm.initialize(components, connections);
-            }
             if(sample & time !== 0)
                 input = 0;
-            var output = sm.step(input);
-            handler.trigger('step', [time, input, output]);
+            try {
+                var output = sm.step(input);
+                handler.trigger('step', [time, input, output]);
+            }
+            catch(e) {
+                reset();
+            }
         }
         
         function firstTen() {
@@ -27,23 +31,35 @@ var statemachine = (function () {
                 inputs = inputs.concat([0,0,0,0,0,0,0,0,0]);
             else
                 inputs = inputs.concat([1,1,1,1,1,1,1,1,1]);
-            handler.trigger('firstTen', [inputs, sm.transduce(inputs)]);
+            try {
+                handler.trigger('firstTen', [inputs, sm.transduce(inputs)]);
+            }
+            catch(e) {
+                reset();
+            }
         }
         
         function reset() {
+            pause();
             sm.initialize(components, connections);
             handler.trigger('reset');
         }
         
         function run(btn) {
-            if(btn.text() === "Start") {
-                interval = setInterval(step, 1000);
-                btn.text("Pause");
-            }
-            else {
-                clearInterval(interval);
-                btn.text("Start");
-            }
+            if(btn.text() === "Start")
+                start();
+            else
+                pause();
+        }
+        
+        function start() {
+            interval = setInterval(step, 1000);
+            handler.trigger('start');
+        }
+        
+        function pause() {
+            clearInterval(interval);
+            handler.trigger('pause');
         }
         
         function switchInput(btn) {
@@ -60,24 +76,17 @@ var statemachine = (function () {
         function updateConnections(connection) {
             if(connection.sourceId === connection.targetId)
                 jsPlumb.detach(connection);
+            
             connections = [];
+            
             var allConnections = jsPlumb.getAllConnections()['blue rectangle'];
             for(c in allConnections)
-                    connections.push([allConnections[c].sourceId, allConnections[c].targetId]);
+                connections.push([allConnections[c].sourceId, allConnections[c].targetId]);
         }
         
         function updateComponents(name, component, remove) {
-            var comp = component;
-            
-			if (!remove) components[name] = comp;
-			else {
-				for (i in components) {
-					if (i === name) {
-						delete components[name];
-                        break;
-					}
-				}
-			}
+			if (!remove) components[name] = component;
+			else delete components[name];
         }
         
         exports.switchInput = switchInput;
@@ -114,7 +123,20 @@ var statemachine = (function () {
             model.firstTen();
         }
         
-        return {switchInput: switchInput, run: run, step: step, firstTen: firstTen, reset: reset};
+        function updateConnections(connection) {
+            model.updateConnections(connection);
+        }
+        
+        function addComponent(name, component) {
+            model.updateComponents(name, component, false);
+        }
+        
+        function removeComponent(name) {
+            model.updateComponents(name, [], true);
+        }
+        
+        return {switchInput: switchInput, run: run, step: step, firstTen: firstTen, reset: reset,
+                updateConnections: updateConnections, addComponent: addComponent, removeComponent: removeComponent};
     }
     
     function View(div, model, controller) {
@@ -170,6 +192,7 @@ var statemachine = (function () {
             series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
                     {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
         });
+        
         $('tspan').eq($('tspan').length-1).hide();
         
         //CREATE A NEW COMPONENT AT A POSITION
@@ -191,9 +214,8 @@ var statemachine = (function () {
             
             var newComponent = $("<div class='item' data-type="+dataType+" id='"+nameId+"'>"+
                                  "<img src='http://web.mit.edu/lu16j/www/state/"+dataType+".png'>"+
-                                 "</div>");
-            newComponent.css({"top": top+displayArea.position().top,
-                              "left": left*displayArea.width()+displayArea.position().left});
+                                 "</div>").css({"top": top+displayArea.position().top,
+                                                "left": left*displayArea.width()+displayArea.position().left});
             
             if(dataType === 'gain') {
                 var valueBox = $("<input class='gainInput' type='text' id='"+nameId+"'></input>");
@@ -205,16 +227,13 @@ var statemachine = (function () {
                         valueBox.val('0');
                         updatedValue = 0;
                     }
-                    model.updateComponents(nameId, [dataType, parseFloat(updatedValue)]);
+                    controller.addComponent(nameId, [dataType, parseFloat(updatedValue)]);
                 });
             }
             
-            var spanId = $("<span class='componentValue' type='text' id="+nameId+">0</span>");
-            newComponent.append(spanId);
+            newComponent.append("<span class='componentValue' type='text' id="+nameId+">0</span>");
             
             displayArea.append(newComponent);
-            if(dataType !== 'input' & dataType !== 'output')
-                model.updateComponents(nameId, [dataType, value]);
             
             jsPlumb.draggable($("#"+nameId), {containment: $('.container')});
             
@@ -258,6 +277,9 @@ var statemachine = (function () {
                 if(evt.pageX < displayArea.position().left)
                     jsPlumb.animate(nameId, {left: displayArea.position().left});
             });
+            
+            if(dataType !== 'input' & dataType !== 'output')
+                controller.addComponent(nameId, [dataType, value]);
         }
         
         /************************/
@@ -282,12 +304,27 @@ var statemachine = (function () {
                 toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[0];
             else
                 toPoint = jsPlumb.getEndpoints(preConn.eq(i).attr('data-to'))[1];
-            model.updateConnections(jsPlumb.connect({source: fromPoint, target: toPoint}));
+            controller.updateConnections(jsPlumb.connect({source: fromPoint, target: toPoint}));
         }
         
         /***************************************/
         
         //OTHER FUNCTIONS
+        
+        $(".buttonz").on("click",function(){
+            createComponent($(this).attr('data-type'), undefined, $(this).position().top-displayArea.position().top, 0);
+        });
+        
+        $('.trash').droppable({
+            over: function(event, ui) {
+                if((['input','output']).indexOf(ui.draggable[0].id) < 0) {
+                    delete usedIds[usedIds.indexOf(ui.draggable[0].id)];
+                    jsPlumb.removeAllEndpoints(ui.draggable);
+                    controller.removeComponent(ui.draggable[0].id);
+                    $(ui.draggable).remove();
+                }
+            }
+        });
         
         //RESIZE EVERYTHING
         var prevWinWidth = displayArea.width();
@@ -301,21 +338,6 @@ var statemachine = (function () {
             jsPlumb.repaintEverything();
             prevWinWidth = displayArea.width();
             prevWinLeft = displayArea.position().left;
-        });
-        
-        $(".buttonz").on("click",function(){
-            createComponent($(this).attr('data-type'), undefined, $(this).position().top-displayArea.position().top, 0);
-        });
-        
-        $('.trash').droppable({
-            over: function(event, ui) {
-                if((['input','output']).indexOf(ui.draggable[0].id) < 0) {
-                    delete usedIds[usedIds.indexOf(ui.draggable[0].id)];
-                    jsPlumb.removeAllEndpoints(ui.draggable);
-                    model.updateComponents(ui.draggable[0].id, [], true);
-                    $(ui.draggable).remove();
-                }
-            }
         });
         
         function updateSpans() {
@@ -358,6 +380,8 @@ var statemachine = (function () {
         model.on('step', step);
         model.on('reset', reset);
         model.on('firstTen', firstTen);
+        model.on('start', function () { runButton.text('Pause'); });
+        model.on('pause', function () { runButton.text('Start'); });
         
         /*******************
         *
@@ -368,7 +392,8 @@ var statemachine = (function () {
             $(this).on('mouseleave',function(e){
                 createComponent($(this).attr('data-type'), undefined,
                                 e.pageY-displayArea.position().top-15,
-                                (e.pageX-displayArea.position().left-40)/displayArea.width());
+                                (e.pageX-displayArea.position().left-40)/displayArea.width(),
+                                0);
                 $(this).off('mouseleave');
             });
             $(this).on('mouseup', function() {
