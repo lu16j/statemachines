@@ -46,8 +46,8 @@ function SM() {
     }
     
     /*
-    Computes the outputs of all components for 
-    one step
+    Computes the next values of all components for 
+    one step, returns the output
     */
     function step(inp) {
         //  Identifies the current index
@@ -218,11 +218,6 @@ var inputEndpointAttrs = {
     isSource: false,
     maxConnections: 1
 };
-
-var adderInputAttrs = jQuery.extend(true, {}, inputEndpointAttrs);
-
-// Removes limit for how many components can feed into it
-adderInputAttrs.maxConnections = -1;
 var outputEndpointAttrs = {
     anchor: 'Right',
     paintStyle: {width:15, height:15, fillStyle:"#eee"},
@@ -230,3 +225,7 @@ var outputEndpointAttrs = {
     isSource: true,
     maxConnections: -1
 };
+
+var adderInputAttrs = jQuery.extend(true, {}, inputEndpointAttrs);
+// Removes limit for how many components can feed into it
+adderInputAttrs.maxConnections = -1;

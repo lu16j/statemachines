@@ -1,6 +1,11 @@
+/*
+*   Save the current state machine
+*/
 function saveSM() {
+    //initialize the string
     var htmlString = '';
     
+    //Saves each component as a div class smComp with data attributes type, id, top, left, value, rev (reversed)
     var components = $('.item');
     for(var i=0; i<components.length; i++) {
         var component = items.eq(i);
@@ -16,6 +21,7 @@ function saveSM() {
         }
     }
     
+    //Saves each connection as a div class smConn with data attributes from and to
     var connections = jsPlumb.getAllConnections()['blue rectangle'];
     for(c in connections) {
         var connection = connections[c];
@@ -25,10 +31,12 @@ function saveSM() {
         htmlString += newString;
     }
     
+    //Initializes the file to be written to, in the form SM-name.txt
     var textToWrite = htmlString;
 	var textFileAsBlob = new Blob([textToWrite], {type:'text/plain'});
 	var fileNameToSaveAs = 'SM-'+document.getElementById("fileToSaveAs").value+'.txt';
 
+    //Generates download link for file
 	var downloadLink = document.createElement("a");
 	downloadLink.download = fileNameToSaveAs;
 	downloadLink.innerHTML = "Download File";
@@ -52,6 +60,7 @@ function destroyClickedElement(event)
 	document.body.removeChild(event.target);
 }
 
+//Preloaded demos
 var demos = {
     'clear': '',
     '2equiv': '<div class="smComp" data-type="delay" data-id="delay0" data-top="7" data-left="0.307041266025641" data-value="undefined" data-rev="undefined"></div>\
@@ -110,6 +119,9 @@ var demos = {
 <div class="smConn" data-from="gain1" data-to="adder2"></div>'
 };
 
+/*
+*   Loads file from the file input
+*/
 function loadSM() {
     var fileToLoad = document.getElementById("fileToLoad").files[0];
     if(fileToLoad.type !== 'text/plain')
@@ -124,18 +136,23 @@ function loadSM() {
         fileReader.readAsText(fileToLoad, "UTF-8");
     }
 }
-
+//load preloaded demo
 function loadDemo(demo) {
     loadHTML(demos[demo]);
 }
 
+//Initializes the machine according to loaded HTML string
 function loadHTML(string) {
     $('.statemachine').each(function () {
+        //Cleans up the endpoints
         $('.item').each(function () {
             jsPlumb.removeAllEndpoints($(this));
         });
+        //Turns off the resize listener
         $(window).off();
+        //Turns off jsPlumb listeners
         jsPlumb.unbind();
+        //Starts fresh
         $(this).html(string);
         statemachine.setup($(this));
     });

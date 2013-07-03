@@ -8,7 +8,7 @@ var statemachine = (function () {
     /*
     Keeps the internal state of the machine : components
     connections etc
-    and changes them by calling state Machine functions from SM
+    and changes them by calling State Machine functions from SM
     and updating the view accordingly
     */
     function Model() {
@@ -113,7 +113,7 @@ var statemachine = (function () {
         }
         
         /*
-        Updates current connections in the system and recordes 
+        Updates current connections in the system and stores
         them in connections.
         */
         function updateConnections(connection) {
@@ -131,7 +131,7 @@ var statemachine = (function () {
         /*
         Updates the components in the system by 
         name = id of component
-        component = type of component
+        component = data of component (type, inputs, value)
         remove = false : adding , true : removing 
         */
         function updateComponents(name, component, remove) {
@@ -214,7 +214,7 @@ var statemachine = (function () {
     */
     function View(div, model, controller) {
         
-        //DEFINE EVERYTHING
+        //Define all visual containers
         var displayArea = $("<div class='displayArea view wide'></div>");
         var componentField = $("<div class='componentField view narrow'></div>");
         var trash = $("<div class='trash short narrow'><i class='icon-trash'></i><strong>TRASH</strong></div>");
@@ -222,16 +222,15 @@ var statemachine = (function () {
         var chart = $('<div class="wide view"></div>');
         var table = $('<div class="narrow view"></div>');
         
-        /***************************************/
-        //PRELOAD MACHINES THAT ARE PUT IN DOM AND EMPTY THERE PLACE.
+        //Preload machine from DOM if any exist, then clears the DOM
         var preComp = $('.smComp');
         var preConn = $('.smConn');
         div.html('');
         
-        /***************************************/
-        
+        //Adds all visual containers
         div.append(componentField, displayArea, trash, buttonField, table, chart);
         
+        //Buttons for running the machine
         var sampleButton = $('<button class="btn btn-info">Unit Sample</button>');
         sampleButton.on('click', controller.switchInput);
         var runButton = $('<button class="btn btn-success">Start</button>');
@@ -245,6 +244,7 @@ var statemachine = (function () {
         
         buttonField.append(sampleButton, runButton, resetButton, stepButton, tenButton);
         
+        //Buttons for adding components
         var delayBtn = $("<button class='buttonz btn' data-type='delay' data-toggle='tooltip' title='Delay'>\
                          <img src='http://web.mit.edu/lu16j/www/state/delay.png'></button>");
         var gainBtn  = $("<button class='buttonz btn' data-type='gain' data-toggle='tooltip' title='Gain'>\
@@ -254,12 +254,10 @@ var statemachine = (function () {
         
         componentField.append(delayBtn, gainBtn, adderBtn);
         
+        //Set up the table and chart
         table.append('<table class="table table-striped table-condensed"><thead>\
                     <tr><th>T</th><th>X</th><th>Y</th></tr>\
                     </thead><tbody></tbody></table>');
-        
-        
-        //Setting up the chart using Highcharts.
         chart.highcharts({
             title: {text: '', floating: true},
             xAxis: {title: {text: 'Time Step'}, categories: []},
@@ -267,24 +265,27 @@ var statemachine = (function () {
             series: [{name: 'Input', type: 'line', id: 'input', data: [], animation: false},
                     {name: 'Output', type: 'line', id: 'output', data: [], animation: false}]
         });
-        
+        //Hide the Highcharts watermark
         $('tspan').eq($('tspan').length-1).hide();
         
         /*
         Create a new component at the position of the clicked component
         button.
         dataType = gain | adder | delay
+        dataId = name of the component, dynamically created to be unique
         top, left = position
         value = the value of the gain component
         reversed = what direction the component faces
         */
         var usedIds = ['delay','gain','adder'];
         function createComponent(dataType, dataId, top, left, value, reversed) {
+            //Defaults
             if(isNaN(value))
                 value = 0;
             if(dataId === undefined)
                 dataId = dataType;
             
+            //Generates a unique ID
             var nameId = dataId;
             if(usedIds.indexOf(dataId) > -1) {
                 var idmaker = 0;
@@ -294,11 +295,12 @@ var statemachine = (function () {
             }
             usedIds.push(nameId);
             
+            //Creates the component
             var newComponent = $("<div class='item' data-type="+dataType+" id='"+nameId+"'>"+
                                  "<img src='http://web.mit.edu/lu16j/www/state/"+dataType+".png'>"+
                                  "</div>").css({"top": top+displayArea.position().top,
                                                 "left": left*displayArea.width()+displayArea.position().left});
-            
+            //Adds input box for gain components
             if(dataType === 'gain') {
                 var valueBox = $("<input class='gainInput' type='text' id='"+nameId+"'></input>");
                 valueBox.val(value);
@@ -312,13 +314,16 @@ var statemachine = (function () {
                     controller.addComponent(nameId, [dataType, parseFloat(updatedValue)]);
                 });
             }
-            
+            //Creates span for updating the component's current value
             newComponent.append("<span class='componentValue' type='text' id="+nameId+">0</span>");
             
+            //Adds the component, makes it draggable
             displayArea.append(newComponent);
-            
             jsPlumb.draggable($("#"+nameId), {containment: $('.container')});
+            if(dataType !== 'input' & dataType !== 'output')
+                controller.addComponent(nameId, [dataType, value]);
             
+            //Adds output and input endpoints as appropriate
             var outputEndpoint, inputEndpoint;
             if(dataType !== 'output')
                 outputEndpoint = jsPlumb.addEndpoint($('#'+nameId), outputEndpointAttrs, genericEndpoint);
@@ -350,10 +355,12 @@ var statemachine = (function () {
                 return false;
             }
             
+            //If component is created backwards
             if(reversed === 'yes') {
                 switchEndpoints();
             }
             
+            //Binds reverse function to right click
             newComponent[0].oncontextmenu = function (e) {
                 return switchEndpoints();
             };
@@ -367,21 +374,20 @@ var statemachine = (function () {
             newComponent.on('dragstop', function (evt) {
                 if(evt.pageY > buttonField.position().top)
                     jsPlumb.animate(nameId, {top: buttonField.position().top-newComponent.height()});
+                if(evt.pageY < displayArea.position().top)
+                    jsPlumb.animate(nameId, {top: displayArea.position().top});
                 if(evt.pageX < displayArea.position().left)
                     jsPlumb.animate(nameId, {left: displayArea.position().left});
+                if(evt.pageX > displayArea.position().left+displayArea.width())
+                    jsPlumb.animate(nameId, {left: displayArea.position().left+displayArea.width()-80});
             });
-            
-            if(dataType !== 'input' & dataType !== 'output')
-                controller.addComponent(nameId, [dataType, value]);
         }
         
-        /************************/
-        //////CREATE INPUT OUTPUT BUTTONS
+        //Create input and output components by default
         createComponent('input', 'input', 80, 0);
         createComponent('output', 'output', 80, (displayArea.width()-80)/displayArea.width());
         
-        /***************************************/
-        //CREATE PRELOADED MACHINE (IF ANY)
+        //PRELOAD MACHINE (IF ANY)
         for(var i=0; i<preComp.length; i++)
             createComponent(preComp.eq(i).attr('data-type'),
                             preComp.eq(i).attr('data-id'),
@@ -400,14 +406,28 @@ var statemachine = (function () {
             controller.updateConnections(jsPlumb.connect({source: fromPoint, target: toPoint}));
         }
         
-        /***************************************/
+        //////////OTHER FUNCTIONS
         
-        //OTHER FUNCTIONS
-        
+        //Create component on click
         $(".buttonz").on("click",function(){
             createComponent($(this).attr('data-type'), undefined, $(this).position().top-displayArea.position().top, 0);
         });
         
+        //OR (Chrome only) create them by dragging in
+        $('.buttonz').on('mousedown', function() {
+            $(this).on('mouseleave',function(e){
+                createComponent($(this).attr('data-type'), undefined,
+                                e.pageY-displayArea.position().top-15,
+                                (e.pageX-displayArea.position().left-40)/displayArea.width(),
+                                0);
+                $(this).off('mouseleave');
+            });
+            $(this).on('mouseup', function() {
+                $(this).off('mouseleave');
+            });
+        });
+        
+        //Delete component when moved to trash, except input or output component
         $('.trash').droppable({
             over: function(event, ui) {
                 if((['input','output']).indexOf(ui.draggable[0].id) < 0) {
@@ -419,7 +439,7 @@ var statemachine = (function () {
             }
         });
         
-        //RESIZE EVERYTHING
+        //Reposition components when displayArea is resized (width only)
         var prevWinWidth = displayArea.width();
         var prevWinLeft = displayArea.position().left;
         $(window).on('resize', function () {
@@ -433,6 +453,7 @@ var statemachine = (function () {
             prevWinLeft = displayArea.position().left;
         });
         
+        //Dynamically update components' current value spans
         function updateSpans() {
             $('.componentValue').each(function () {
                 this.innerHTML = Math.round(model.getValue(this.id)*100000)/100000;
@@ -477,26 +498,6 @@ var statemachine = (function () {
         model.on('firstTen', firstTen);
         model.on('start', function () { runButton.text('Pause'); });
         model.on('pause', function () { runButton.text('Start'); });
-
-        
-        
-        /*
-        Makes components draggable off the componentField and onto
-        the display field
-        */
-        $('.buttonz').on('mousedown', function() {
-            $(this).on('mouseleave',function(e){
-                createComponent($(this).attr('data-type'), undefined,
-                                e.pageY-displayArea.position().top-15,
-                                (e.pageX-displayArea.position().left-40)/displayArea.width(),
-                                0);
-                $(this).off('mouseleave');
-            });
-            $(this).on('mouseup', function() {
-                $(this).off('mouseleave');
-            });
-        });
-       
     }
     
     
