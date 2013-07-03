@@ -30,6 +30,6 @@ Saving and loading functions are saved in saving.js.
 Images, and code for Bootstrap and jsPlumb, are currently hosted on my Athena locker - web.mit.edu/lu16j/www
 Usage
 =====
-web.mit.edu/6.mitx/www/6.01-statemachine/mvc.html  
+http://web.mit.edu/6.mitx/www/6.01-statemachine/mvc.html  
 The website is designed for student interaction. Instructors are encouraged to send skeleton .txt files for students to load and interact with, or to embed the applet with a preloaded machine in a class webpage.  
 Embedding code is provided on the website, under "Embedding" in the "About" popup.
