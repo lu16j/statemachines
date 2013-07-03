@@ -1,4 +1,16 @@
 var statemachine = (function () {
+
+    ///////////////////////////////////////
+    /////
+    /////        MODEL
+    /////
+    ///////////////////////////////////////
+    /*
+    Keeps the internal state of the machine : components
+    connections etc
+    and changes them by calling state Machine functions from SM
+    and updating the view accordingly
+    */
     function Model() {
         var sm = SM(),
             exports = {},
@@ -8,6 +20,10 @@ var statemachine = (function () {
             connections = [],
             interval;
         
+        /*
+        Computes results for a single step
+        and updates the view via the handler 'step'
+        */
         function step() {
             var input = 1;
             var time = sm.timeIndex();
@@ -24,6 +40,10 @@ var statemachine = (function () {
             }
         }
         
+        /*
+        Computes results for the first ten steps
+        and updates the view via the handler 'firstTen'
+        */
         function firstTen() {
             sm.initialize(components, connections);
             var inputs = [1];
@@ -39,12 +59,21 @@ var statemachine = (function () {
             }
         }
         
+        
+        /*
+        Resets the system and initialises the current 
+        machine in SM and updates the view via the handler'reset'
+        */
         function reset() {
             pause();
             sm.initialize(components, connections);
             handler.trigger('reset');
         }
         
+        
+        /*
+        Starts or pauses the machine
+        */
         function run(btn) {
             if(btn.text() === "Start")
                 start();
@@ -52,16 +81,26 @@ var statemachine = (function () {
                 pause();
         }
         
+        /*
+        Starts runing the machine by creating interval
+        */
         function start() {
             interval = setInterval(step, 1000);
             handler.trigger('start');
         }
         
+        /*
+        Stops charting results by clearing the
+        interval.
+        */
         function pause() {
             clearInterval(interval);
             handler.trigger('pause');
         }
         
+        /*
+        Switches between the two input types that we have.
+        */
         function switchInput(btn) {
             if(btn.text() === "Unit Sample") {
                 sample = false;
@@ -73,6 +112,10 @@ var statemachine = (function () {
             }
         }
         
+        /*
+        Updates current connections in the system and recordes 
+        them in connections.
+        */
         function updateConnections(connection) {
             if(connection.sourceId === connection.targetId)
                 jsPlumb.detach(connection);
@@ -84,6 +127,13 @@ var statemachine = (function () {
                 connections.push([allConnections[c].sourceId, allConnections[c].targetId]);
         }
         
+        
+        /*
+        Updates the components in the system by 
+        name = id of component
+        component = type of component
+        remove = false : adding , true : removing 
+        */
         function updateComponents(name, component, remove) {
 			if (!remove) components[name] = component;
 			else delete components[name];
@@ -102,6 +152,17 @@ var statemachine = (function () {
         return exports;
     }
     
+    
+    ///////////////////////////////////////
+    /////
+    /////        CONTROLLER
+    /////
+    ///////////////////////////////////////
+    
+    /*
+    Connects components in the view to functions and responses
+    resulting in change in the model.
+    */
     function Controller(model) {
         function switchInput() {
             model.switchInput($(this));
@@ -139,6 +200,18 @@ var statemachine = (function () {
                 updateConnections: updateConnections, addComponent: addComponent, removeComponent: removeComponent};
     }
     
+    
+    
+    ///////////////////////////////////////
+    /////
+    /////        VIEW
+    /////
+    ///////////////////////////////////////
+    
+    /*
+    Creates all components in the state machine
+    and connects them to the controller for updating
+    */
     function View(div, model, controller) {
         
         //DEFINE EVERYTHING
@@ -150,7 +223,7 @@ var statemachine = (function () {
         var table = $('<div class="narrow view"></div>');
         
         /***************************************/
-        //PRELOAD MACHINE (IF ANY)s
+        //PRELOAD MACHINES THAT ARE PUT IN DOM AND EMPTY THERE PLACE.
         var preComp = $('.smComp');
         var preConn = $('.smConn');
         div.html('');
@@ -185,6 +258,8 @@ var statemachine = (function () {
                     <tr><th>T</th><th>X</th><th>Y</th></tr>\
                     </thead><tbody></tbody></table>');
         
+        
+        //Setting up the chart using Highcharts.
         chart.highcharts({
             title: {text: '', floating: true},
             xAxis: {title: {text: 'Time Step'}, categories: []},
@@ -195,7 +270,14 @@ var statemachine = (function () {
         
         $('tspan').eq($('tspan').length-1).hide();
         
-        //CREATE A NEW COMPONENT AT A POSITION
+        /*
+        Create a new component at the position of the clicked component
+        button.
+        dataType = gain | adder | delay
+        top, left = position
+        value = the value of the gain component
+        reversed = what direction the component faces
+        */
         var usedIds = ['delay','gain','adder'];
         function createComponent(dataType, dataId, top, left, value, reversed) {
             if(isNaN(value))
@@ -245,6 +327,11 @@ var statemachine = (function () {
             if(dataType === 'adder')
                 inputEndpoint = jsPlumb.addEndpoint($('#'+nameId), adderInputAttrs, genericEndpoint);
             
+            
+            /*
+            Changes the orientation of the component
+            for better visualization of flow in the state machine
+            */
             function switchEndpoints() {
                 if(inputEndpoint.anchor.x === 0) {
                     inputEndpoint.setAnchor('Right');
@@ -271,6 +358,12 @@ var statemachine = (function () {
                 return switchEndpoints();
             };
             
+            
+            /*
+            Keeps the object on the Display area
+            Reverts back to it when dragged to other 
+            areas
+            */
             newComponent.on('dragstop', function (evt) {
                 if(evt.pageY > buttonField.position().top)
                     jsPlumb.animate(nameId, {top: buttonField.position().top-newComponent.height()});
@@ -346,6 +439,8 @@ var statemachine = (function () {
             });
         }
         
+        // STEP, RESET and FIRST TEN returning outputs from the SM
+        // and display them in the display spans and on the chart
         function step(data) {
             var time = data[0];
             var input = data[1];
@@ -382,12 +477,13 @@ var statemachine = (function () {
         model.on('firstTen', firstTen);
         model.on('start', function () { runButton.text('Pause'); });
         model.on('pause', function () { runButton.text('Start'); });
+
         
-        /*******************
-        *
-        *    B E T A
-        *
-        ********************/
+        
+        /*
+        Makes components draggable off the componentField and onto
+        the display field
+        */
         $('.buttonz').on('mousedown', function() {
             $(this).on('mouseleave',function(e){
                 createComponent($(this).attr('data-type'), undefined,
@@ -400,13 +496,14 @@ var statemachine = (function () {
                 $(this).off('mouseleave');
             });
         });
-        /****************
-        *
-        *
-        *
-        ****************/
+       
     }
     
+    
+    /*
+    Initialises jsPlumb and creates a model, view and 
+    controller system for the State Machine
+    */
     function setup(div) {
         jsPlumb.ready(function() {
             jsPlumb.importDefaults({

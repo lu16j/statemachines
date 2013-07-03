@@ -10,6 +10,10 @@ function SM() {
     var values = {};
     var functions = {};
     
+    /*
+    Goes through component list and initialises 
+    all components according to their type.
+    */
     function component(name, type, input, K) {
         values[name] = [0];
         if(input.length === 0)
@@ -41,6 +45,10 @@ function SM() {
         }
     }
     
+    /*
+    Computes the outputs of all components for 
+    one step
+    */
     function step(inp) {
         //  Identifies the current index
         var i = values.input.length;
@@ -77,7 +85,10 @@ function SM() {
         return values.output[i];
     }
     
-    //  ---NEEDS UPDATE---
+   /*
+   Calls the step function multiple times to
+   calculate outputs for a sequence of inputs(inps)
+   */
     function transduce(inps) {
         var results = [];
         try {
@@ -89,7 +100,9 @@ function SM() {
         return results;
     }
     
-    //  Initializes machine according to components and connections
+     /* Initializes machine according to components and
+     connections    
+     */
     function initialize(comp, conn) {
         timeIndex = 0;
         values.input = [0];
@@ -146,6 +159,12 @@ AN EVENT HANDLER
 function UpdateHandler() {
     var handlers = {};
     
+    
+    /*
+    creates a new listener request
+    event = event to listen to 
+    callback = function to call in the case of the event
+    */
     function on(event, callback) {
         var callbacks = handlers[event];
         if (callbacks === undefined) {
@@ -154,6 +173,12 @@ function UpdateHandler() {
         callbacks.push(callback);
         handlers[event] = callbacks;
     }
+    
+     /*
+    calls all functions that are listeners
+    event = event that occured
+    data = data to pass to the callback functions.
+    */
     function trigger(event, data) {
         var callbacks = handlers[event];
         if (callbacks !== undefined) {
@@ -165,7 +190,12 @@ function UpdateHandler() {
     return {on: on, trigger: trigger};
 }
 
-//JSPLUMB     
+//JSPLUMB DEFINITIONS
+ /*
+ Defines the various endpoints for out connectors and endpoints.
+ Specifies that multiple components can feed into an adder
+*/
+
 var genericEndpoint = {
     endpoint:"Rectangle",
     scope:"blue rectangle",
@@ -188,7 +218,10 @@ var inputEndpointAttrs = {
     isSource: false,
     maxConnections: 1
 };
+
 var adderInputAttrs = jQuery.extend(true, {}, inputEndpointAttrs);
+
+// Removes limit for how many components can feed into it
 adderInputAttrs.maxConnections = -1;
 var outputEndpointAttrs = {
     anchor: 'Right',
