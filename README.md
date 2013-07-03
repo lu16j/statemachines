@@ -2,8 +2,11 @@ statemachines
 =============
 A visual representation and interactive simulation for State Machines, as covered in MIT's 6.01 (Intro to EECS) course, otherwise known as LTI (linear time-invariant) systems.  
 
-Features (Video demos coming soon)
-============================
+Features
+========
+Video Demos:
+Creating - http://www.youtube.com/watch?v=DYXZvZySlVU
+Saving, etc - http://www.youtube.com/watch?v=bNBBbvG6Clg
 Editing
 -------
 Create components by clicking on their respective buttons; drag to position, drag and drop from solid gray source endpoint to empty blue target endpoint to connect.  
