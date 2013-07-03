@@ -8,7 +8,7 @@ function saveSM() {
     //Saves each component as a div class smComp with data attributes type, id, top, left, value, rev (reversed)
     var components = $('.item');
     for(var i=0; i<components.length; i++) {
-        var component = items.eq(i);
+        var component = components.eq(i);
         if(component[0].id !== 'input' & component[0].id !== 'output') {
             var newString = '<div class="smComp" data-type="'+
                 component.attr('data-type')+'" data-id="'+
